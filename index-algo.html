@@ -218,10 +218,10 @@ nav{display:flex;align-items:center;gap:8px;padding:0 12px;height:50px;backgroun
         <div class="cc">
           <div class="ct">Algo Engine · EMA + RSI + ATR + ADX</div>
           <div class="cr"><span class="cn">EMA9 vs EMA21</span><div class="crr"><span class="cv" id="cv1">--</span><div class="cb" id="cs1">?</div></div></div>
-          <div class="cr"><span class="cn">RSI zone</span><div class="crr"><span class="cv" id="cv2">--</span><div class="cb" id="cs2">?</div></div></div>
-          <div class="cr"><span class="cn">ADX strength</span><div class="crr"><span class="cv" id="cv3">--</span><div class="cb" id="cs3">?</div></div></div>
-          <div class="cr"><span class="cn">Price vs EMA21</span><div class="crr"><span class="cv" id="cv4">--</span><div class="cb" id="cs4">?</div></div></div>
-          <div class="cr"><span class="cn">Volume</span><div class="crr"><span class="cv" id="cv5">--</span><div class="cb" id="cs5">?</div></div></div>
+          <div class="cr"><span class="cn">EMA9 slope</span><div class="crr"><span class="cv" id="cv2">--</span><div class="cb" id="cs2">?</div></div></div>
+          <div class="cr"><span class="cn">RSI zone</span><div class="crr"><span class="cv" id="cv3">--</span><div class="cb" id="cs3">?</div></div></div>
+          <div class="cr"><span class="cn">ADX strength</span><div class="crr"><span class="cv" id="cv4">--</span><div class="cb" id="cs4">?</div></div></div>
+          <div class="cr"><span class="cn">Price vs EMA21</span><div class="crr"><span class="cv" id="cv5">--</span><div class="cb" id="cs5">?</div></div></div>
         </div>
       </div>
       <div id="tHis" style="display:none;padding-top:4px;">
@@ -540,33 +540,55 @@ function getSignalAt(i, C, H, L, V, e9a, e21a, rsia, atria, adxa) {
   const n = C.length;
   if (i < 35 || i >= n) return null;
   const ce=C[i], e9=e9a[i], e21=e21a[i];
-  // Proper index alignment for derived arrays
+
   const ri = Math.min(i, rsia.length-1);
-  const ai = Math.max(0, i-14);        // atr offset (starts at index 1, length = C.length-1 then -n+1)
-  const di = Math.max(0, i-n+(adxa.length)); // adx offset
   const cr = rsia[ri] || 50;
-  const ca = atria[Math.min(ai, atria.length-1)] || ce*.005;
-  const cd = adxa[Math.min(Math.max(0,i-30), adxa.length-1)] || 20;
+  const ca = atria[Math.min(i-1, atria.length-1)] || ce*.005;
+  const cd = adxa[Math.min(Math.max(0, adxa.length - (n - i) - 1), adxa.length-1)] || 20;
   const avgV = V.slice(Math.max(0,i-20),i).reduce((a,b)=>a+b,0)/20||1;
   const cv = V[i];
 
-  const lc=[e9>e21, cr>=40&&cr<=70, cd>=20, ce>e21, cv>avgV*0.8];
-  const sc=[e9<e21, cr>=30&&cr<=60, cd>=20, ce<e21, cv>avgV*0.8];
+  // EMA slope — is EMA9 rising or falling?
+  const e9prev = e9a[Math.max(0,i-3)];
+  const e9slope = e9 - e9prev; // positive = rising, negative = falling
+
+  // ── LONG confluences (non-overlapping with SHORT) ──
+  // RSI 45-65: momentum building but not overbought
+  // Price clearly above EMA21 by at least 0.05%
+  const lc = [
+    e9 > e21,                          // 1. EMA9 above EMA21
+    e9slope > 0,                       // 2. EMA9 rising
+    cr >= 45 && cr <= 65,              // 3. RSI bullish zone (non-overlap)
+    cd >= 20,                          // 4. ADX trending
+    ce > e21 * 1.0005,                 // 5. Price clearly above EMA21
+  ];
+
+  // ── SHORT confluences (non-overlapping with LONG) ──
+  // RSI 35-55: momentum turning bearish
+  // Price clearly below EMA21 by at least 0.05%
+  const sc = [
+    e9 < e21,                          // 1. EMA9 below EMA21
+    e9slope < 0,                       // 2. EMA9 falling
+    cr >= 35 && cr <= 55,              // 3. RSI bearish zone (non-overlap)
+    cd >= 20,                          // 4. ADX trending
+    ce < e21 * 0.9995,                 // 5. Price clearly below EMA21
+  ];
+
   const ls=lc.filter(Boolean).length, ss=sc.filter(Boolean).length;
 
+  // Need clear winner — at least 4/5, and must beat opposite by 2+
   if(ls<4&&ss<4) return null;
-  if(ls===ss) return null;
+  if(Math.abs(ls-ss)<2) return null;   // ambiguous — skip
   const isLong=ls>ss, score=isLong?ls:ss;
   const dp=ce>1000?1:ce>100?2:ce>1?4:6;
-  // SL = ATR×1.0 → min 1:2 R:R
   const slDist = ca * 1.0;
   return {
     isLong, score, dp,
     entry: ce,
-    sl:  isLong ? ce-slDist     : ce+slDist,
-    tp1: isLong ? ce+slDist*2   : ce-slDist*2,
-    tp2: isLong ? ce+slDist*3   : ce-slDist*3,
-    tp3: isLong ? ce+slDist*4   : ce-slDist*4,
+    sl:  isLong ? ce - slDist     : ce + slDist,   // SHORT: SL is ABOVE entry
+    tp1: isLong ? ce + slDist*2   : ce - slDist*2,  // SHORT: TP is BELOW entry
+    tp2: isLong ? ce + slDist*3   : ce - slDist*3,
+    tp3: isLong ? ce + slDist*4   : ce - slDist*4,
     risk: slDist, ca,
   };
 }
@@ -665,30 +687,39 @@ function runAlgo() {
   document.getElementById('atr').textContent=ca.toFixed(dp);
   setText('adx',cd.toFixed(1),cd>20?'up':'dn');
 
-  const lcs=[e9>e21,cr>=40&&cr<=70,cd>=20,ce>e21,cv>avgV*.8];
-  const scs=[e9<e21,cr>=30&&cr<=60,cd>=20,ce<e21,cv>avgV*.8];
+  // EMA9 slope
+  const e9prev = e9a.length>3 ? e9a[e9a.length-4] : e9a[0];
+  const e9slope = e9 - e9prev;
+
+  // Same confluences as backtest — non-overlapping zones
+  const lcs=[e9>e21, e9slope>0, cr>=45&&cr<=65, cd>=20, ce>e21*1.0005];
+  const scs=[e9<e21, e9slope<0, cr>=35&&cr<=55, cd>=20, ce<e21*0.9995];
   const ls=lcs.filter(Boolean).length, ss=scs.filter(Boolean).length;
-  const isLong=ls>=ss, score=isLong?ls:ss, dir=isLong?'L':'S';
+
+  // Direction — need clear winner (2+ gap)
+  const gap=Math.abs(ls-ss);
+  const isLong=ls>ss, score=isLong?ls:ss, dir=isLong?'L':'S';
+  const hasSignal=score>=4&&gap>=2;
 
   setBadge('cv1','cs1',isLong?lcs[0]:scs[0],`${e9.toFixed(dp)} ${isLong?'>':'<'} ${e21.toFixed(dp)}`);
-  setBadge('cv2','cs2',isLong?lcs[1]:scs[1],cr.toFixed(1));
-  setBadge('cv3','cs3',lcs[2],cd.toFixed(1));
-  setBadge('cv4','cs4',isLong?lcs[3]:scs[3],isLong?'Above EMA21':'Below EMA21');
-  setBadge('cv5','cs5',lcs[4],cv>avgV?'HIGH':'NORMAL');
+  setBadge('cv2','cs2',isLong?lcs[1]:scs[1],e9slope>0?'Rising':'Falling');
+  setBadge('cv3','cs3',isLong?lcs[2]:scs[2],cr.toFixed(1));
+  setBadge('cv4','cs4',lcs[3],cd.toFixed(1));
+  setBadge('cv5','cs5',isLong?lcs[4]:scs[4],isLong?'Above EMA21':'Below EMA21');
 
   const bos=ce>Math.max(...C.slice(-10,-1))?'BOS ↑':ce<Math.min(...C.slice(-10,-1))?'BOS ↓':'RANGE';
   setText('bTr',isLong?'BULLISH':'BEARISH',isLong?'up':'dn');
   setText('bSt',bos,bos.includes('↑')?'up':bos.includes('↓')?'dn':'');
   document.getElementById('bVl').textContent=cv>avgV*1.5?'V.HIGH':cv>avgV?'HIGH':'NORMAL';
-  setText('bCo',score+'/5',score>=4?'up':score>=3?'':'dn');
-  setText('bSg',score>=4?(isLong?'▲ LONG':'▼ SHORT'):score>=3?'WATCH':'NO SIG',score>=4?(isLong?'up':'dn'):'');
+  setText('bCo',score+'/5',score>=4&&gap>=2?'up':score>=3?'':'dn');
+  setText('bSg',hasSignal?(isLong?'▲ LONG':'▼ SHORT'):score>=3?'WATCH':'NO SIG',hasSignal?(isLong?'up':'dn'):'');
   document.getElementById('bTm').textContent=new Date(all[n-1].t).toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 
-  // Live signal fire
+  // Live signal fire — needs 4/5 AND 2+ gap AND direction change
   liveCD=Math.max(0,liveCD-1);
   const openLive=liveSigs.find(s=>s.status==='OPEN');
   const now=Date.now();
-  const canFire=score>=4&&!openLive&&liveCD===0&&now-liveLastTime>120000&&dir!==liveLastDir;
+  const canFire=hasSignal&&!openLive&&liveCD===0&&now-liveLastTime>120000&&dir!==liveLastDir;
   if(canFire){
     liveLastTime=now; liveLastDir=dir; liveCD=20;
     const slDist=ca*1.0;
