@@ -28,7 +28,7 @@ body.light{
 body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;transition:background .2s,color .2s;}
 
 /* HEADER */
-header{display:flex;align-items:center;gap:8px;padding:0 12px;height:50px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;overflow:hidden;}
+header{display:flex;align-items:center;gap:8px;padding:0 12px;height:50px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;overflow:visible;}
 .logo{display:flex;align-items:center;gap:7px;margin-right:4px;flex-shrink:0;}
 .logo-mark{width:26px;height:26px;background:var(--green);border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000;font-size:10px;}
 .logo-name{font-size:13px;font-weight:700;white-space:nowrap;}
@@ -42,12 +42,12 @@ header{display:flex;align-items:center;gap:8px;padding:0 12px;height:50px;backgr
 .bk:hover:not(.active){color:var(--text);background:var(--bg3);}
 
 /* SEARCH */
-.search-wrap{position:relative;flex-shrink:0;}
+.search-wrap{position:relative;flex-shrink:0;overflow:visible;}
 .search-input{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:4px 8px 4px 24px;color:var(--text);font-size:11px;font-family:'Space Grotesk',sans-serif;outline:none;width:130px;transition:all .2s;}
 .search-input:focus{border-color:var(--green);width:160px;}
 .search-input::placeholder{color:var(--text3);}
 .search-icon{position:absolute;left:7px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:11px;pointer-events:none;}
-.search-drop{position:absolute;top:calc(100% + 3px);left:0;width:220px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;z-index:999;overflow:hidden;max-height:280px;overflow-y:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+.search-drop{position:absolute;top:calc(100% + 3px);left:0;width:220px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;z-index:99999;overflow:hidden;max-height:280px;overflow-y:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,.4);}
 .search-drop.show{display:block;}
 .search-item{padding:7px 10px;font-size:11px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);}
 .search-item:last-child{border-bottom:none;}
@@ -590,7 +590,8 @@ function fireSignal(isLong,entry,atr,score,dp){
   const id=Date.now();
   const candleIdx=getAllCandles().length-1;
 
-  currentSignal={id,isLong,entry,sl,tp1,tp2,tp3,risk,dp,score,riskPct,pair:symbolLabel,tf,time,candleIdx,status:'OPEN',slMoved:null,exitPrice:null,result:null};
+  const entryTime=getAllCandles().length>0?getAllCandles()[getAllCandles().length-1].t:Date.now();
+  currentSignal={id,isLong,entry,sl,tp1,tp2,tp3,risk,dp,score,riskPct,pair:symbolLabel,tf,time,candleIdx,entryTime,status:'OPEN',slMoved:null,exitPrice:null,result:null};
   chartSignals.push({...currentSignal});
   if(chartSignals.length>100)chartSignals.shift();
 
@@ -637,6 +638,38 @@ function updatePriceBar(price){
   }
 }
 
+
+// Load more historical candles when scrolled far left
+let isLoadingMore=false;
+async function checkLoadMore(){
+  if(isLoadingMore)return;
+  const all=getAllCandles();
+  // If scrolled more than 80% of available candles, fetch more
+  if(viewOffset>all.length*0.7){
+    isLoadingMore=true;
+    const oldest=candles.length>0?candles[0].t:Date.now();
+    try{
+      const base=`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${tf}&endTime=${oldest-1}&limit=500`;
+      const proxies=[base,`https://corsproxy.io/?${encodeURIComponent(base)}`,`https://api.allorigins.win/raw?url=${encodeURIComponent(base)}`];
+      for(const url of proxies){
+        try{
+          const r=await fetch(url,{signal:AbortSignal.timeout(8000)});
+          if(!r.ok)continue;
+          const d=await r.json();
+          if(!Array.isArray(d)||!d.length)continue;
+          const older=d.map(k=>({t:+k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5],closed:true}));
+          // Prepend older candles
+          candles=[...older,...candles];
+          if(candles.length>5000)candles=candles.slice(-5000);
+          drawChart();
+          break;
+        }catch(e){console.warn('loadmore fail',e.message);}
+      }
+    }catch(e){}
+    isLoadingMore=false;
+  }
+}
+
 // =====================================================================
 // CHART DRAW — Full TradingView feel
 // =====================================================================
@@ -654,7 +687,7 @@ function setupChartEvents(){
     if(!isPanning)return;
     const dx=e.clientX-panStartX;
     const candlePx=viewScale+Math.max(1,Math.round(viewScale*.15));
-    viewOffset=Math.max(0,Math.min(Math.max(0,getAllCandles().length-10),panStartOffset-Math.round(dx/candlePx)));
+    viewOffset=Math.max(0,panStartOffset-Math.round(dx/candlePx)); checkLoadMore();
     drawChart();
   });
   window.addEventListener('mouseup',()=>{isPanning=false;document.getElementById('chartWrap').style.cursor='crosshair';});
@@ -666,7 +699,7 @@ function setupChartEvents(){
     e.preventDefault();
     const dx=e.touches[0].clientX-tx;
     const candlePx=viewScale+Math.max(1,Math.round(viewScale*.15));
-    viewOffset=Math.max(0,Math.min(Math.max(0,getAllCandles().length-10),to-Math.round(dx/candlePx)));
+    viewOffset=Math.max(0,to-Math.round(dx/candlePx)); checkLoadMore();
     drawChart();
   },{passive:false});
   // Pinch zoom
@@ -684,9 +717,13 @@ function setupChartEvents(){
 function drawChart(){
   const canvas=document.getElementById('chart');
   const wrap=document.getElementById('chartWrap');
-  canvas.width=wrap.clientWidth;canvas.height=wrap.clientHeight;
-  const W=canvas.width,H=canvas.height;
+  const dpr=window.devicePixelRatio||1;
+  const cssW=wrap.clientWidth,cssH=wrap.clientHeight;
+  canvas.width=cssW*dpr;canvas.height=cssH*dpr;
+  canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';
+  const W=cssW,H=cssH;
   const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
   const all=getAllCandles();
 
   if(all.length<2){
@@ -774,63 +811,88 @@ function drawChart(){
     ctx.fillRect(x+.5,bTop,cW-1,bH);
   });
 
-  // ===== CHART SIGNALS — Past entries with status =====
+  // ===== CHART SIGNALS — Past entries with status (timestamp-based positioning) =====
   chartSignals.forEach(sig=>{
-    const relIdx=sig.candleIdx-vs;
+    // Find candle index by timestamp (much more reliable than candleIdx)
+    let relIdx=-1;
+    for(let i=0;i<view.length;i++){
+      if(Math.abs(view[i].t - sig.entryTime) < 120000){ relIdx=i; break; }
+    }
+    // fallback to candleIdx
+    if(relIdx<0) relIdx=sig.candleIdx-vs;
     if(relIdx<0||relIdx>=view.length)return;
-    const x=toX(relIdx);
-    const entryY=toY(sig.entry);
-    if(entryY<chartTop-10||entryY>chartTop+chartH+10)return;
 
-    // Entry Arrow (BUY=up arrow below candle, SELL=down arrow above candle)
+    const x=toX(relIdx);
+    const sigCandle=view[relIdx];
+    if(!sigCandle)return;
+
+    // Check if entry price is visible
+    if(sig.entry<minP||sig.entry>maxP)return;
+
+    // Arrow
     const arrowColor=sig.isLong?clrBull:clrBear;
     ctx.fillStyle=arrowColor;
     ctx.beginPath();
     if(sig.isLong){
-      // Arrow pointing up, below the candle
-      const ay=toY(view[relIdx]?view[relIdx].l:sig.entry)+14;
-      ctx.moveTo(x,ay-10);ctx.lineTo(x-7,ay);ctx.lineTo(x+7,ay);ctx.closePath();
+      const ay=Math.min(toY(sigCandle.l)+16, chartTop+chartH-10);
+      ctx.moveTo(x,ay-10);ctx.lineTo(x-8,ay+2);ctx.lineTo(x+8,ay+2);ctx.closePath();
     } else {
-      const ay=toY(view[relIdx]?view[relIdx].h:sig.entry)-14;
-      ctx.moveTo(x,ay+10);ctx.lineTo(x-7,ay);ctx.lineTo(x+7,ay);ctx.closePath();
+      const ay=Math.max(toY(sigCandle.h)-16, chartTop+10);
+      ctx.moveTo(x,ay+10);ctx.lineTo(x-8,ay-2);ctx.lineTo(x+8,ay-2);ctx.closePath();
     }
     ctx.fill();
 
-    // Entry label box
-    const lblY=sig.isLong?toY(view[relIdx]?view[relIdx].l:sig.entry)+28:toY(view[relIdx]?view[relIdx].h:sig.entry)-28;
+    // Status label
     const statusColor=sig.status==='SL'?clrBear:sig.status==='OPEN'?'#3b9eff':clrBull;
-    ctx.fillStyle=statusColor;
-    const lbl=sig.status==='OPEN'?'ENTRY':sig.status;
+    const lbl=sig.status==='OPEN'?(sig.isLong?'BUY':'SELL'):sig.status;
+    ctx.font='bold 8px Space Grotesk,sans-serif';
     const lblW=ctx.measureText(lbl).width+8;
-    ctx.fillRect(x-lblW/2,lblY-7,lblW,14);
-    ctx.fillStyle='#000';ctx.font='bold 7px Space Grotesk,monospace';ctx.textAlign='center';
-    ctx.fillText(lbl,x,lblY+3);
+    const lblY=sig.isLong?Math.min(toY(sigCandle.l)+30,chartTop+chartH-4):Math.max(toY(sigCandle.h)-30,chartTop+18);
+    ctx.fillStyle=statusColor;
+    ctx.fillRect(x-lblW/2,lblY-8,lblW,16);
+    ctx.fillStyle='#fff';ctx.textAlign='center';
+    ctx.fillText(lbl,x,lblY+4);
 
-    // TP/SL lines for this signal (only show relevant ones based on status)
-    const showSL=sig.status==='OPEN'||sig.status==='TP1';
-    const showTP1=sig.status==='OPEN'||sig.status==='TP1';
-    const showTP2=sig.status!=='SL'&&sig.status!=='TP1';
-    const showTP3=sig.status==='OPEN'||sig.status==='TP3';
-
-    // Draw lines from signal candle to right edge (or to current candle)
-    const lineEndIdx=Math.min(view.length-1,relIdx+60);
-    const x2=padL+lineEndIdx*candlePx+cW/2;
-
-    const drawSigLine=(price,color,dash,hitMark)=>{
-      if(price<minP*.999||price>maxP*1.001)return;
+    // SL/TP horizontal lines extending right from signal
+    const lineEnd=W-72; // go to right edge
+    const drawSigLine=(price,color,dash,thickness=1)=>{
+      if(price<minP||price>maxP)return;
       const y=toY(price);
-      ctx.setLineDash(dash);ctx.strokeStyle=color;ctx.lineWidth=.8;
-      ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x2,y);ctx.stroke();
+      ctx.setLineDash(dash);
+      ctx.strokeStyle=color;
+      ctx.lineWidth=thickness;
+      ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(lineEnd,y);ctx.stroke();
       ctx.setLineDash([]);
-      if(hitMark){
-        ctx.fillStyle=color;ctx.beginPath();ctx.arc(x2,y,3,0,Math.PI*2);ctx.fill();
-      }
+      // Price label on right
+      ctx.font='8px JetBrains Mono,monospace';ctx.textAlign='right';
+      ctx.fillStyle=color;
+      ctx.fillText(price.toLocaleString('en',{maximumFractionDigits:sig.dp||2}),lineEnd-2,y-2);
     };
 
-    if(showSL)drawSigLine(sig.status==='TP1'&&sig.slMoved?sig.slMoved:sig.sl,'rgba(255,77,109,.5)',[3,3],sig.status==='SL');
-    if(showTP1)drawSigLine(sig.tp1,sig.status==='TP1'||sig.status==='TP2'||sig.status==='TP3'?clrBull:'rgba(0,208,132,.4)',[2,2],sig.status!=='OPEN');
-    if(showTP2&&sig.tp2>=minP&&sig.tp2<=maxP)drawSigLine(sig.tp2,sig.status==='TP2'||sig.status==='TP3'?clrBull:'rgba(0,208,132,.5)',[2,2],sig.status==='TP2'||sig.status==='TP3');
-    if(sig.tp3>=minP&&sig.tp3<=maxP)drawSigLine(sig.tp3,sig.status==='TP3'?clrBull:'rgba(0,208,132,.6)',[2,2],sig.status==='TP3');
+    // Draw based on signal status
+    if(sig.status==='OPEN'){
+      drawSigLine(sig.sl,'rgba(255,77,109,.6)',[4,3]);
+      drawSigLine(sig.tp1,'rgba(0,208,132,.45)',[3,3]);
+      drawSigLine(sig.tp2,'rgba(0,208,132,.6)',[3,3]);
+      drawSigLine(sig.tp3,'rgba(0,208,132,.75)',[3,3]);
+    } else if(sig.status==='TP1'){
+      drawSigLine(sig.slMoved||sig.entry,'rgba(240,180,41,.5)',[4,3]); // BE
+      drawSigLine(sig.tp1,clrBull,[],1.5);
+      drawSigLine(sig.tp2,'rgba(0,208,132,.6)',[3,3]);
+      drawSigLine(sig.tp3,'rgba(0,208,132,.75)',[3,3]);
+    } else if(sig.status==='TP2'){
+      drawSigLine(sig.tp1,clrBull,[],1);
+      drawSigLine(sig.tp2,clrBull,[],1.5);
+      drawSigLine(sig.tp3,'rgba(0,208,132,.75)',[3,3]);
+    } else if(sig.status==='TP3'){
+      drawSigLine(sig.tp1,clrBull,[],1);
+      drawSigLine(sig.tp2,clrBull,[],1);
+      drawSigLine(sig.tp3,clrBull,[],1.5);
+    } else if(sig.status==='SL'){
+      drawSigLine(sig.sl,clrBear,[],1.5);
+      // faded TPs
+      drawSigLine(sig.tp1,'rgba(0,208,132,.2)',[3,3]);
+    }
   });
 
   // Current price line
