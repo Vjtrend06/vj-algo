@@ -412,24 +412,38 @@ async function fetchHistory(sym,interval,limit=500){
 }
 
 // =====================================================================
-// WEBSOCKET
+// WEBSOCKET — with session ID to prevent stale data
 // =====================================================================
+let wsSession=0; // increment on every new connection to invalidate old ones
 function connectWS(sym,interval){
-  if(ws){try{ws.close();}catch(e){}ws=null;}
+  // Kill existing WS completely
+  if(ws){
+    try{ws.onclose=null;ws.onerror=null;ws.onmessage=null;ws.close();}catch(e){}
+    ws=null;
+  }
+  wsSession++; // new session
+  const mySession=wsSession;
   setWsStatus('connecting');
   const stream=`${sym.toLowerCase()}@kline_${interval}`;
   const urls=[`wss://fstream.binance.com/ws/${stream}`,`wss://stream.binance.com:9443/ws/${stream}`,`wss://stream.binance.com:443/ws/${stream}`];
   let idx=0;
   function tryConn(){
-    ws=new WebSocket(urls[idx%urls.length]);
-    ws.onopen=()=>setWsStatus('connected');
-    ws.onmessage=e=>{
-      const k=JSON.parse(e.data).k;
+    if(mySession!==wsSession)return; // stale session, abort
+    const sock=new WebSocket(urls[idx%urls.length]);
+    ws=sock;
+    sock.onopen=()=>{if(mySession===wsSession)setWsStatus('connected');};
+    sock.onmessage=e=>{
+      if(mySession!==wsSession)return; // stale, ignore
+      const msg=JSON.parse(e.data);
+      const k=msg.k;
       if(!k)return;
+      // Validate symbol matches current
+      const msgSym=(k.s||'').toUpperCase();
+      if(msgSym&&msgSym!==symbol)return;
       liveCandle={t:+k.t,o:+k.o,h:+k.h,l:+k.l,c:+k.c,v:+k.v,closed:k.x};
       if(k.x){
         candles.push({...liveCandle});
-        if(candles.length>1000)candles.shift();
+        if(candles.length>3000)candles.shift();
         liveCandle=null;
         signalLockCounter=Math.max(0,signalLockCounter-1);
         checkSignalHits();
@@ -438,8 +452,13 @@ function connectWS(sym,interval){
       updatePriceBar(+k.c);
       drawChart();
     };
-    ws.onerror=()=>setWsStatus('disconnected');
-    ws.onclose=()=>{setWsStatus('disconnected');idx++;setTimeout(tryConn,3000);};
+    sock.onerror=()=>{if(mySession===wsSession)setWsStatus('disconnected');};
+    sock.onclose=()=>{
+      if(mySession!==wsSession)return;
+      setWsStatus('disconnected');
+      idx++;
+      setTimeout(tryConn,3000);
+    };
   }
   tryConn();
 }
@@ -739,13 +758,20 @@ function drawChart(){
   const cW=viewScale,gap=Math.max(1,Math.round(cW*.15)),candlePx=cW+gap;
   const padR=72,padL=8;
   const maxVis=Math.floor((W-padR-padL)/candlePx);
-  const viewEnd=Math.max(all.length,all.length-viewOffset);
-  const vs=Math.max(0,all.length-viewOffset-maxVis);
-  const ve=Math.max(0,all.length-viewOffset);
+  // Clamp viewOffset to valid range
+  const maxOff=Math.max(0,all.length-maxVis);
+  viewOffset=Math.max(0,Math.min(viewOffset,maxOff+maxVis*2)); // allow some over-scroll for load-more
+  const ve=Math.max(maxVis,Math.min(all.length, all.length-viewOffset+maxVis));
+  const vs=Math.max(0,ve-maxVis);
   const view=all.slice(vs,ve);
   if(!view.length)return;
 
-  const minP=Math.min(...view.map(c=>c.l))*.9993,maxP=Math.max(...view.map(c=>c.h))*1.0007;
+  // Safe price range
+  const lows=view.map(c=>c.l).filter(v=>v>0);
+  const highs=view.map(c=>c.h).filter(v=>v>0);
+  if(!lows.length||!highs.length)return;
+  const minP=Math.min(...lows)*.9993,maxP=Math.max(...highs)*1.0007;
+  if(minP<=0||maxP<=0||minP>=maxP)return;
   const chartH=H*.78,chartTop=6,volH=H*.1,volTop=H-volH-2;
   const toY=p=>chartTop+(1-(p-minP)/(maxP-minP))*chartH;
   const toX=i=>padL+i*candlePx+cW/2;
@@ -811,87 +837,114 @@ function drawChart(){
     ctx.fillRect(x+.5,bTop,cW-1,bH);
   });
 
-  // ===== CHART SIGNALS — Past entries with status (timestamp-based positioning) =====
+  // ===== CHART SIGNALS — timestamp-based, always visible =====
   chartSignals.forEach(sig=>{
-    // Find candle index by timestamp (much more reliable than candleIdx)
+    // Find candle by timestamp
     let relIdx=-1;
+    const tWin=getAllCandles().length>0?(getAllCandles()[1]?getAllCandles()[1].t-getAllCandles()[0].t:60000):60000;
     for(let i=0;i<view.length;i++){
-      if(Math.abs(view[i].t - sig.entryTime) < 120000){ relIdx=i; break; }
+      if(Math.abs(view[i].t-sig.entryTime)<=tWin*1.5){relIdx=i;break;}
     }
-    // fallback to candleIdx
-    if(relIdx<0) relIdx=sig.candleIdx-vs;
-    if(relIdx<0||relIdx>=view.length)return;
+    if(relIdx<0)relIdx=sig.candleIdx-vs;
 
-    const x=toX(relIdx);
-    const sigCandle=view[relIdx];
-    if(!sigCandle)return;
+    const sigInView=relIdx>=0&&relIdx<view.length;
+    const sigCandle=sigInView?view[relIdx]:null;
 
-    // Check if entry price is visible
-    if(sig.entry<minP||sig.entry>maxP)return;
-
-    // Arrow
-    const arrowColor=sig.isLong?clrBull:clrBear;
-    ctx.fillStyle=arrowColor;
-    ctx.beginPath();
-    if(sig.isLong){
-      const ay=Math.min(toY(sigCandle.l)+16, chartTop+chartH-10);
-      ctx.moveTo(x,ay-10);ctx.lineTo(x-8,ay+2);ctx.lineTo(x+8,ay+2);ctx.closePath();
-    } else {
-      const ay=Math.max(toY(sigCandle.h)-16, chartTop+10);
-      ctx.moveTo(x,ay+10);ctx.lineTo(x-8,ay-2);ctx.lineTo(x+8,ay-2);ctx.closePath();
-    }
-    ctx.fill();
-
-    // Status label
-    const statusColor=sig.status==='SL'?clrBear:sig.status==='OPEN'?'#3b9eff':clrBull;
-    const lbl=sig.status==='OPEN'?(sig.isLong?'BUY':'SELL'):sig.status;
-    ctx.font='bold 8px Space Grotesk,sans-serif';
-    const lblW=ctx.measureText(lbl).width+8;
-    const lblY=sig.isLong?Math.min(toY(sigCandle.l)+30,chartTop+chartH-4):Math.max(toY(sigCandle.h)-30,chartTop+18);
-    ctx.fillStyle=statusColor;
-    ctx.fillRect(x-lblW/2,lblY-8,lblW,16);
-    ctx.fillStyle='#fff';ctx.textAlign='center';
-    ctx.fillText(lbl,x,lblY+4);
-
-    // SL/TP horizontal lines extending right from signal
-    const lineEnd=W-72; // go to right edge
-    const drawSigLine=(price,color,dash,thickness=1)=>{
-      if(price<minP||price>maxP)return;
+    // SL/TP lines — always draw these even if entry candle not in view
+    // They extend across the full chart width so user sees them when scrolling
+    const drawSigLine=(price,color,dash,thickness,labelTxt)=>{
+      if(price<=0||price<minP*.98||price>maxP*1.02)return;
       const y=toY(price);
+      if(y<0||y>H)return;
+      // Line from left edge to right (always full width)
       ctx.setLineDash(dash);
       ctx.strokeStyle=color;
       ctx.lineWidth=thickness;
-      ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(lineEnd,y);ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(sigInView?toX(relIdx):0,y);
+      ctx.lineTo(W-padR,y);
+      ctx.stroke();
       ctx.setLineDash([]);
-      // Price label on right
-      ctx.font='8px JetBrains Mono,monospace';ctx.textAlign='right';
-      ctx.fillStyle=color;
-      ctx.fillText(price.toLocaleString('en',{maximumFractionDigits:sig.dp||2}),lineEnd-2,y-2);
+      // Right side price label
+      if(labelTxt){
+        ctx.font='bold 8px JetBrains Mono,monospace';
+        const tw=ctx.measureText(labelTxt).width+6;
+        ctx.fillStyle=color;
+        ctx.globalAlpha=0.9;
+        ctx.fillRect(W-padR,y-8,tw,16);
+        ctx.globalAlpha=1;
+        ctx.fillStyle='#000';
+        ctx.textAlign='left';
+        ctx.fillText(labelTxt,W-padR+3,y+4);
+      }
     };
 
-    // Draw based on signal status
+    const dp2=sig.dp||2;
+    const fmt=v=>v.toLocaleString('en',{minimumFractionDigits:dp2,maximumFractionDigits:dp2});
+
     if(sig.status==='OPEN'){
-      drawSigLine(sig.sl,'rgba(255,77,109,.6)',[4,3]);
-      drawSigLine(sig.tp1,'rgba(0,208,132,.45)',[3,3]);
-      drawSigLine(sig.tp2,'rgba(0,208,132,.6)',[3,3]);
-      drawSigLine(sig.tp3,'rgba(0,208,132,.75)',[3,3]);
+      drawSigLine(sig.sl,clrBear,[5,3],1,'SL '+fmt(sig.sl));
+      drawSigLine(sig.tp1,'rgba(0,208,132,.6)',[3,3],1,'TP1 '+fmt(sig.tp1));
+      drawSigLine(sig.tp2,'rgba(0,208,132,.75)',[3,3],1,'TP2 '+fmt(sig.tp2));
+      drawSigLine(sig.tp3,clrBull,[3,3],1.5,'TP3 '+fmt(sig.tp3));
     } else if(sig.status==='TP1'){
-      drawSigLine(sig.slMoved||sig.entry,'rgba(240,180,41,.5)',[4,3]); // BE
-      drawSigLine(sig.tp1,clrBull,[],1.5);
-      drawSigLine(sig.tp2,'rgba(0,208,132,.6)',[3,3]);
-      drawSigLine(sig.tp3,'rgba(0,208,132,.75)',[3,3]);
+      drawSigLine(sig.slMoved||sig.entry,'rgba(240,180,41,.7)',[4,3],1,'BE '+fmt(sig.slMoved||sig.entry));
+      drawSigLine(sig.tp1,clrBull,[],2,'✓TP1');
+      drawSigLine(sig.tp2,'rgba(0,208,132,.7)',[3,3],1,'TP2 '+fmt(sig.tp2));
+      drawSigLine(sig.tp3,clrBull,[3,3],1,'TP3 '+fmt(sig.tp3));
     } else if(sig.status==='TP2'){
-      drawSigLine(sig.tp1,clrBull,[],1);
-      drawSigLine(sig.tp2,clrBull,[],1.5);
-      drawSigLine(sig.tp3,'rgba(0,208,132,.75)',[3,3]);
+      drawSigLine(sig.tp1,clrBull,[],1.5,'✓TP1');
+      drawSigLine(sig.tp2,clrBull,[],2,'✓TP2');
+      drawSigLine(sig.tp3,'rgba(0,208,132,.7)',[3,3],1,'TP3 '+fmt(sig.tp3));
     } else if(sig.status==='TP3'){
-      drawSigLine(sig.tp1,clrBull,[],1);
-      drawSigLine(sig.tp2,clrBull,[],1);
-      drawSigLine(sig.tp3,clrBull,[],1.5);
+      drawSigLine(sig.tp1,clrBull,[],1,'✓TP1');
+      drawSigLine(sig.tp2,clrBull,[],1,'✓TP2');
+      drawSigLine(sig.tp3,clrBull,[],2,'✓TP3');
     } else if(sig.status==='SL'){
-      drawSigLine(sig.sl,clrBear,[],1.5);
-      // faded TPs
-      drawSigLine(sig.tp1,'rgba(0,208,132,.2)',[3,3]);
+      drawSigLine(sig.sl,clrBear,[],2,'✗SL '+fmt(sig.sl));
+      drawSigLine(sig.tp1,'rgba(0,208,132,.2)',[3,3],1,null);
+    }
+
+    // Arrow + label only if candle is in current view
+    if(sigInView&&sigCandle){
+      const x=toX(relIdx);
+      const arrowColor=sig.isLong?clrBull:clrBear;
+      // Big clear arrow
+      ctx.fillStyle=arrowColor;
+      ctx.beginPath();
+      if(sig.isLong){
+        const ay=Math.min(toY(sigCandle.l)+18,chartTop+chartH-20);
+        ctx.moveTo(x,ay-12);ctx.lineTo(x-10,ay+2);ctx.lineTo(x+10,ay+2);ctx.closePath();
+      } else {
+        const ay=Math.max(toY(sigCandle.h)-18,chartTop+20);
+        ctx.moveTo(x,ay+12);ctx.lineTo(x-10,ay-2);ctx.lineTo(x+10,ay-2);ctx.closePath();
+      }
+      ctx.fill();
+      // Shadow glow
+      ctx.shadowColor=arrowColor;ctx.shadowBlur=6;ctx.fill();ctx.shadowBlur=0;
+
+      // BUY/SELL label — always white text on colored bg for visibility
+      const lbl=sig.isLong?'BUY':'SELL';
+      const lblBg=sig.isLong?clrBull:clrBear;
+      ctx.font='bold 9px Space Grotesk,sans-serif';
+      const lblW=ctx.measureText(lbl).width+10;
+      const lblY=sig.isLong?Math.min(toY(sigCandle.l)+34,chartTop+chartH-12):Math.max(toY(sigCandle.h)-34,chartTop+22);
+      // Rounded rect bg
+      ctx.fillStyle=lblBg;
+      ctx.beginPath();
+      ctx.roundRect(x-lblW/2,lblY-9,lblW,18,3);
+      ctx.fill();
+      ctx.fillStyle='#ffffff';
+      ctx.textAlign='center';
+      ctx.fillText(lbl,x,lblY+4);
+
+      // Entry price below label
+      const epY=sig.isLong?lblY+22:lblY-22;
+      if(epY>chartTop&&epY<chartTop+chartH){
+        ctx.font='7px JetBrains Mono,monospace';
+        ctx.fillStyle=isLight?'rgba(0,0,0,.5)':'rgba(255,255,255,.5)';
+        ctx.fillText('$'+fmt(sig.entry),x,epY);
+      }
     }
   });
 
