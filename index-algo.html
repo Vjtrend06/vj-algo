@@ -524,15 +524,16 @@ function getSignalAt(i, C, H, L, V, e9a, e21a, rsia, atria, adxa) {
   const score = isLong ? ls : ss;
 
   const dp = ce > 1000 ? 1 : ce > 100 ? 2 : ce > 1 ? 4 : 6;
-  const risk = ca * 1.5;
+  // SL = ATR×1.0 (tight), TP1=2R, TP2=3R, TP3=4R — gives proper 1:2+ R:R
+  const slDist = ca * 1.0;
   return {
     isLong, score, dp,
     entry: ce,
-    sl: isLong ? ce - risk : ce + risk,
-    tp1: isLong ? ce + risk : ce - risk,
-    tp2: isLong ? ce + risk*2 : ce - risk*2,
-    tp3: isLong ? ce + risk*3 : ce - risk*3,
-    risk, ca,
+    sl:  isLong ? ce - slDist       : ce + slDist,
+    tp1: isLong ? ce + slDist * 2   : ce - slDist * 2,
+    tp2: isLong ? ce + slDist * 3   : ce - slDist * 3,
+    tp3: isLong ? ce + slDist * 4   : ce - slDist * 4,
+    risk: slDist, ca,
   };
 }
 
@@ -574,42 +575,38 @@ function runBacktest() {
     // Simulate forward to find result
     let status = 'OPEN';
     let slFinal = sig.sl;
-    let resultIdx = Math.min(n - 1, i + 300); // max 300 candles forward
-    let tp1Hit = false;
+    let resultIdx = Math.min(n - 1, i + 500); // max 500 candles forward
+    let tp1Hit = false, tp2Hit = false;
     let slMoved = null;
 
-    for (let j = i + 1; j < Math.min(n, i + 300); j++) {
+    for (let j = i + 1; j < Math.min(n, i + 500); j++) {
       const jH = H[j], jL = L[j];
-      // Check SL first (uses updated slFinal which may be breakeven after TP1)
+      // SL check (uses updated slFinal — could be breakeven after TP1)
       if ((sig.isLong && jL <= slFinal) || (!sig.isLong && jH >= slFinal)) {
-        status = tp1Hit ? 'TP1' : 'SL'; resultIdx = j; break;
+        status = tp1Hit ? 'TP1' : 'SL';
+        resultIdx = j; break;
       }
-      // Check TP1 first — then move SL to breakeven, continue hunting TP2/TP3
+      // TP1 — then move SL to breakeven, keep hunting
       if (!tp1Hit && ((sig.isLong && jH >= sig.tp1) || (!sig.isLong && jL <= sig.tp1))) {
-        tp1Hit = true;
-        status = 'TP1'; // tentative — may upgrade to TP2/TP3
-        slFinal = sig.entry; // move SL to breakeven
-        slMoved = sig.entry;
-        resultIdx = j;
-        // don't break — keep checking for TP2/TP3
-        continue;
+        tp1Hit = true; status = 'TP1';
+        slFinal = sig.entry; slMoved = sig.entry;
+        resultIdx = j; continue;
       }
-      // Check TP2 (only after TP1 hit)
-      if (tp1Hit && ((sig.isLong && jH >= sig.tp2) || (!sig.isLong && jL <= sig.tp2))) {
-        status = 'TP2'; resultIdx = j;
-        // don't break — keep checking for TP3
-        continue;
+      // TP2
+      if (tp1Hit && !tp2Hit && ((sig.isLong && jH >= sig.tp2) || (!sig.isLong && jL <= sig.tp2))) {
+        tp2Hit = true; status = 'TP2'; resultIdx = j; continue;
       }
-      // Check TP3 (only after TP2 hit)
-      if (status === 'TP2' && ((sig.isLong && jH >= sig.tp3) || (!sig.isLong && jL <= sig.tp3))) {
+      // TP3
+      if (tp2Hit && ((sig.isLong && jH >= sig.tp3) || (!sig.isLong && jL <= sig.tp3))) {
         status = 'TP3'; resultIdx = j; break;
       }
     }
 
     sigs.push({
       id: `bt_${i}`,
-      candleIdx: i,
-      entryTime: candles[i].t,
+      candleIdx: i,           // index in candles[] — stable forever
+      entryTime: candles[i].t, // exact open timestamp of entry candle
+      resultTime: candles[resultIdx] ? candles[resultIdx].t : null,
       resultIdx,
       isLong: sig.isLong, score: sig.score, dp: sig.dp,
       entry: sig.entry, sl: sig.sl, tp1: sig.tp1, tp2: sig.tp2, tp3: sig.tp3,
@@ -690,20 +687,20 @@ function runAlgo() {
   const canFire = score >= 4 && !openLive && liveCD === 0 && now - liveLastTime > 120000 && dir !== liveLastDir;
   if (canFire) {
     liveLastTime = now; liveLastDir = dir; liveCD = 20;
-    const risk = ca * 1.5;
-    // candleIdx = index in candles array (liveC is not counted — live signal fired on a closed candle basis)
-    const liveIdx = candles.length - 1;
+    const slDist = ca * 1.0; // same as backtest
+    const liveIdx = candles.length - 1; // stable index in candles[]
     const sig = {
       id: `lv_${now}`, isBT: false,
       candleIdx: liveIdx,
       entryTime: candles[liveIdx].t,
+      resultTime: null, resultIdx: null,
       isLong, score, dp,
       entry: ce,
-      sl: isLong ? ce-risk : ce+risk,
-      tp1: isLong ? ce+risk : ce-risk,
-      tp2: isLong ? ce+risk*2 : ce-risk*2,
-      tp3: isLong ? ce+risk*3 : ce-risk*3,
-      risk, slMoved: null, status: 'OPEN',
+      sl:  isLong ? ce - slDist       : ce + slDist,
+      tp1: isLong ? ce + slDist * 2   : ce - slDist * 2,
+      tp2: isLong ? ce + slDist * 3   : ce - slDist * 3,
+      tp3: isLong ? ce + slDist * 4   : ce - slDist * 4,
+      risk: slDist, slMoved: null, status: 'OPEN',
       pair: SYM_L, tf: TF,
     };
     curSig = sig;
@@ -773,9 +770,18 @@ function updateStats() {
   const closed = all.filter(s => s.status !== 'OPEN');
   const wins = closed.filter(s => s.status !== 'SL');
   const wr = closed.length ? Math.round(wins.length / closed.length * 100) : 0;
+  // Calc avg R:R — TP3=4R, TP2=3R, TP1=2R, SL=-1R
+  let totalR = 0;
+  closed.forEach(s => {
+    if (s.status === 'TP3') totalR += 4;
+    else if (s.status === 'TP2') totalR += 3;
+    else if (s.status === 'TP1') totalR += 2;
+    else totalR -= 1; // SL
+  });
+  const avgR = closed.length ? (totalR / closed.length).toFixed(1) : '--';
   document.getElementById('sWR').textContent = wr + '%';
   document.getElementById('sSg').textContent = all.length;
-  document.getElementById('sRR').textContent = closed.length ? (wins.length / Math.max(1, closed.length)).toFixed(1) : '--';
+  document.getElementById('sRR').textContent = avgR;
 }
 
 function renderHistory() {
@@ -862,21 +868,16 @@ function setupEvents() {
   wrap.addEventListener('wheel', e => {
     e.preventDefault();
     const cPx = zoom + Math.max(1, Math.floor(zoom * 0.2));
-
     if (e.ctrlKey || e.metaKey) {
-      // Pinch gesture on MacBook/trackpad — zoom
-      const zoomDelta = e.deltaY < 0 ? 1.12 : 0.88;
-      zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom * zoomDelta));
+      // Pinch zoom on trackpad
+      zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom * (e.deltaY < 0 ? 1.12 : 0.88)));
     } else if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-      // Horizontal two-finger swipe — pan left/right
-      const canDelta = e.deltaX / cPx;
-      offset = Math.max(0, offset + canDelta);
+      // Horizontal swipe → pan
+      offset = Math.max(0, offset + e.deltaX / cPx);
       loadMore();
     } else {
-      // Vertical scroll — ZOOM in/out (TradingView style)
-      // Scroll up = zoom in, scroll down = zoom out
-      const zoomDelta = e.deltaY < 0 ? 1.08 : 0.93;
-      zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom * zoomDelta));
+      // Vertical scroll → zoom in/out (TradingView style)
+      zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom * (e.deltaY < 0 ? 1.08 : 0.93)));
     }
     render();
   }, { passive: false });
@@ -963,10 +964,11 @@ function render() {
   const PAD_R = 75, PAD_L = 8;
   const CH = H * 0.75, CT = 4, VH = H * 0.12, VT = H - VH - 2;
 
-  // View window — offset is # candles from right
+  // View window — offset = # candles hidden from right edge
   const maxVis = Math.floor((W - PAD_R - PAD_L) / cPx);
-  const clampedOff = Math.max(0, Math.min(all.length - Math.min(maxVis, all.length), Math.floor(offset)));
-  offset = clampedOff; // keep offset clamped
+  const maxOff = Math.max(0, all.length - Math.floor(maxVis * 0.3));
+  const clampedOff = Math.max(0, Math.min(maxOff, Math.floor(offset)));
+  offset = clampedOff;
   const ve = all.length - clampedOff;
   const vs = Math.max(0, ve - maxVis);
   const view = all.slice(vs, ve);
@@ -1036,132 +1038,139 @@ function render() {
   });
 
   // ── SIGNALS ──
-  // Only draw lines for the very latest open signal
-  // All other signals: just arrow + small result label
   const allSigs = [...btSigs, ...liveSigs];
   const latestOpen = allSigs.filter(s => s.status === 'OPEN').slice(-1)[0];
 
+  // Helper: find view index for an absolute candle index in candles[]
+  // all = [...candles, liveC?]  — candles[i] maps to all[i]
+  // view = all.slice(vs, ve)  — so view[k] = all[vs + k] = candles[vs + k]
+  function viewIdx(absIdx) {
+    if (absIdx === null || absIdx === undefined) return -1;
+    if (absIdx >= vs && absIdx < ve) return absIdx - vs;
+    return -1;
+  }
+
   allSigs.forEach(sig => {
-    // Find candle in view — use absolute candleIdx (stable, never changes)
-    let ri = -1;
-    const absIdx = sig.candleIdx; // absolute index in 'all' array
-    const viewStart = vs; // first absolute index in view
-    const viewEnd = ve;   // last absolute index in view (exclusive)
-    if (absIdx >= viewStart && absIdx < viewEnd) {
-      ri = absIdx - viewStart;
-    }
-    const inView = ri >= 0 && ri < view.length;
-    const sc = inView ? view[ri] : null;
     const dp2 = sig.dp || 2;
     const fmt = v => v.toLocaleString('en', { minimumFractionDigits: dp2, maximumFractionDigits: dp2 });
 
-    // ─ Draw SL/TP lines ONLY for latest open signal ─
+    const ei = viewIdx(sig.candleIdx); // entry candle view index
+    const entryInView = ei >= 0;
+    const ec = entryInView ? view[ei] : null;
+
+    const ri2 = sig.isBT ? viewIdx(sig.resultIdx) : -1; // result candle view index (BT only)
+    const resultInView = ri2 >= 0;
+    const rc2 = resultInView ? view[ri2] : null;
+
+    // ─ Horizontal level lines for latest open signal ─
     const isLatestOpen = latestOpen && sig.id === latestOpen.id;
     if (isLatestOpen) {
+      const x1 = entryInView ? toX(ei) : PAD_L;
       const hline = (price, col, dash, thick, lbl) => {
-        if (!price || price < pMin * .95 || price > pMax * 1.05) return;
+        if (!price) return;
         const y = toY(price);
         if (y < CT - 5 || y > CT + CH + 5) return;
-        const x1 = inView ? toX(ri) : PAD_L;
         ctx.setLineDash(dash); ctx.strokeStyle = col; ctx.lineWidth = thick;
         ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
         ctx.setLineDash([]);
         if (lbl) {
           ctx.font = 'bold 9px JetBrains Mono,monospace';
-          const tw = ctx.measureText(lbl).width + 8;
-          ctx.fillStyle = col; ctx.globalAlpha = .9;
-          ctx.fillRect(W - PAD_R, y - 9, tw, 18);
+          const tw = ctx.measureText(lbl).width + 10;
+          ctx.fillStyle = col; ctx.globalAlpha = .92;
+          if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(W - PAD_R, y - 9, tw, 18, 2); ctx.fill(); }
+          else ctx.fillRect(W - PAD_R, y - 9, tw, 18);
           ctx.globalAlpha = 1;
-          ctx.fillStyle = LIGHT ? '#fff' : '#000'; ctx.textAlign = 'left';
-          ctx.fillText(lbl, W - PAD_R + 4, y + 5);
+          ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+          ctx.fillText(lbl, W - PAD_R + 5, y + 5);
         }
       };
-      const sl = sig.slMoved || sig.sl;
-      hline(sl, BEAR, [5,3], 1.2, 'SL');
-      hline(sig.tp1, 'rgba(38,166,154,.55)', [3,3], 1, 'TP1');
-      hline(sig.tp2, 'rgba(38,166,154,.75)', [3,3], 1, 'TP2');
-      hline(sig.tp3, BULL, [3,3], 1.5, 'TP3');
-      // Entry line
-      if (sig.entry >= pMin && sig.entry <= pMax) {
-        const ey = toY(sig.entry);
-        ctx.setLineDash([2,3]); ctx.strokeStyle = BLU; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(inView ? toX(ri) : PAD_L, ey); ctx.lineTo(W-PAD_R, ey); ctx.stroke();
+      // Entry line (blue)
+      const ey = toY(sig.entry);
+      if (ey > CT && ey < CT + CH) {
+        ctx.setLineDash([3,3]); ctx.strokeStyle = BLU; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(x1, ey); ctx.lineTo(W - PAD_R, ey); ctx.stroke();
         ctx.setLineDash([]);
       }
+      const sl = sig.slMoved || sig.sl;
+      hline(sl,      BEAR,                    [5,3], 1.2, sig.slMoved ? 'BE' : 'SL');
+      hline(sig.tp1, 'rgba(38,166,154,.6)',   [3,3], 1,   'TP1');
+      hline(sig.tp2, 'rgba(38,166,154,.8)',   [3,3], 1.2, 'TP2');
+      hline(sig.tp3, BULL,                    [2,2], 1.5, 'TP3');
     }
 
-    // ─ Arrow + label for ALL signals ─
-    if (inView && sc) {
-      const x = toX(ri);
+    // ─ Entry candle: arrow + BUY/SELL label ─
+    if (entryInView && ec) {
+      const x = toX(ei);
       const ac = sig.isLong ? BULL : BEAR;
 
-      // Arrow — pointing direction (below candle for long, above for short)
-      ctx.shadowColor = ac; ctx.shadowBlur = 6;
+      // Arrow triangle pointing toward price
+      ctx.shadowColor = ac; ctx.shadowBlur = 8;
       ctx.fillStyle = ac;
       ctx.beginPath();
       if (sig.isLong) {
-        const ay = Math.min(toY(sc.l) + 18, CT + CH - 20);
-        ctx.moveTo(x, ay-13); ctx.lineTo(x-8, ay+3); ctx.lineTo(x+8, ay+3); ctx.closePath();
+        // Up arrow below candle low
+        const tip = Math.min(toY(ec.l) - 6, CT + CH - 8);
+        const base = tip + 14;
+        ctx.moveTo(x, tip); ctx.lineTo(x - 8, base); ctx.lineTo(x + 8, base);
       } else {
-        const ay = Math.max(toY(sc.h) - 18, CT + 20);
-        ctx.moveTo(x, ay+13); ctx.lineTo(x-8, ay-3); ctx.lineTo(x+8, ay-3); ctx.closePath();
+        // Down arrow above candle high
+        const tip = Math.max(toY(ec.h) + 6, CT + 8);
+        const base = tip - 14;
+        ctx.moveTo(x, tip); ctx.lineTo(x - 8, base); ctx.lineTo(x + 8, base);
       }
-      ctx.fill(); ctx.shadowBlur = 0;
+      ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
 
-      // Signal label pill
+      // BUY / SELL pill label
       const lbl = sig.isLong ? 'BUY' : 'SELL';
       ctx.font = 'bold 10px Inter,sans-serif';
-      const lw = ctx.measureText(lbl).width + 10, lh = 17;
+      const lw = ctx.measureText(lbl).width + 10, lh = 16;
       const ly = sig.isLong
-        ? Math.min(toY(sc.l) + 34, CT + CH - 10)
-        : Math.max(toY(sc.h) - 34, CT + 10);
+        ? Math.min(toY(ec.l) + 22, CT + CH - 10)
+        : Math.max(toY(ec.h) - 22, CT + 10);
       ctx.fillStyle = ac;
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(x - lw/2, ly - lh/2, lw, lh, 3);
-      else ctx.rect(x - lw/2, ly - lh/2, lw, lh);
-      ctx.fill();
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x - lw/2, ly - lh/2, lw, lh, 3); ctx.fill(); }
+      else ctx.fillRect(x - lw/2, ly - lh/2, lw, lh);
       ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
       ctx.fillText(lbl, x, ly + 4);
+    }
 
-      // Result badge ON signal candle for closed signals
-      if (sig.status !== 'OPEN') {
-        const rc = sig.status === 'SL' ? BEAR : BULL;
-        ctx.font = 'bold 8px Inter,sans-serif';
-        const rw = ctx.measureText(sig.status).width + 8, rh = 13;
-        const ry = sig.isLong ? ly + lh/2 + rh + 3 : ly - lh/2 - rh - 3;
-        if (ry > CT && ry < CT + CH) {
-          ctx.fillStyle = rc;
-          if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x - rw/2, ry - rh/2, rw, rh, 2); ctx.fill(); }
-          else ctx.fillRect(x - rw/2, ry - rh/2, rw, rh);
-          ctx.fillStyle = '#fff'; ctx.fillText(sig.status, x, ry + 4);
-        }
+    // ─ Result candle: TP/SL badge (BT signals) ─
+    if (sig.isBT && sig.status !== 'OPEN' && resultInView && rc2) {
+      const rx = toX(ri2);
+      const stC = sig.status === 'SL' ? BEAR : BULL;
+      ctx.font = 'bold 9px Inter,sans-serif';
+      const rlbl = sig.status;
+      const rw = ctx.measureText(rlbl).width + 10, rh = 16;
+      // Place above high for TP, below low for SL
+      const ry = sig.status === 'SL'
+        ? Math.min(toY(rc2.l) + 22, CT + CH - 10)
+        : Math.max(toY(rc2.h) - 22, CT + 10);
+      ctx.fillStyle = stC; ctx.globalAlpha = 0.9;
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(rx - rw/2, ry - rh/2, rw, rh, 3); ctx.fill(); }
+      else ctx.fillRect(rx - rw/2, ry - rh/2, rw, rh);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+      ctx.fillText(rlbl, rx, ry + 4);
+
+      // Small dot on result candle wick
+      const dotY = sig.status === 'SL'
+        ? toY(sig.slMoved || sig.sl)
+        : sig.status === 'TP3' ? toY(sig.tp3)
+        : sig.status === 'TP2' ? toY(sig.tp2)
+        : toY(sig.tp1);
+      if (dotY > CT && dotY < CT + CH) {
+        ctx.beginPath(); ctx.arc(rx, dotY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = stC; ctx.globalAlpha = 0.8; ctx.fill(); ctx.globalAlpha = 1;
       }
 
-      // Draw result marker on result candle (BT signals only)
-      if (sig.isBT && sig.status !== 'OPEN' && sig.resultIdx !== undefined) {
-        const resAbsIdx = sig.resultIdx;
-        if (resAbsIdx >= viewStart && resAbsIdx < viewEnd) {
-          const rri = resAbsIdx - viewStart;
-          const rx = toX(rri);
-          const rc2 = sig.status === 'SL' ? BEAR : BULL;
-          const rc2lbl = sig.status;
-          ctx.font = 'bold 8px Inter,sans-serif';
-          const rw2 = ctx.measureText(rc2lbl).width + 8, rh2 = 13;
-          const rvc = view[rri];
-          const rry = sig.isLong ? toY(rvc.h) - rh2 - 4 : toY(rvc.l) + rh2 + 4;
-          if (rry > CT && rry < CT + CH) {
-            ctx.fillStyle = rc2; ctx.globalAlpha = 0.85;
-            if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(rx - rw2/2, rry - rh2/2, rw2, rh2, 2); ctx.fill(); }
-            else ctx.fillRect(rx - rw2/2, rry - rh2/2, rw2, rh2);
-            ctx.globalAlpha = 1;
-            ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
-            ctx.fillText(rc2lbl, rx, rry + 4);
-
-            // Small dot on result candle
-            ctx.beginPath(); ctx.arc(rx, sig.isLong ? toY(rvc.h) : toY(rvc.l), 3, 0, Math.PI*2);
-            ctx.fillStyle = rc2; ctx.fill();
-          }
-        }
+      // Connecting dashed line: entry → result (if both in view)
+      if (entryInView) {
+        const ex2 = toX(ei);
+        const ey2 = toY(sig.entry);
+        const lineCol = sig.status === 'SL' ? 'rgba(239,83,80,.3)' : 'rgba(38,166,154,.3)';
+        ctx.setLineDash([4,4]); ctx.strokeStyle = lineCol; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(ex2, ey2); ctx.lineTo(rx, dotY); ctx.stroke();
+        ctx.setLineDash([]);
       }
     }
   });
@@ -1192,13 +1201,12 @@ function jumpTo(candleIdx) {
   const W = wrap.clientWidth;
   const cPx = zoom + Math.max(1, Math.floor(zoom * 0.2));
   const maxVis = Math.floor((W - 75 - 8) / cPx);
-  // put signal at 30% from left
-  const fromRight = candles.length - candleIdx;
-  offset = Math.max(0, fromRight - Math.floor(maxVis * 0.7));
+  // Put the signal at ~35% from left = 65% from right
+  const all = liveC ? [...candles, liveC] : [...candles];
+  const fromRight = all.length - candleIdx;
+  offset = Math.max(0, fromRight - Math.floor(maxVis * 0.65));
   render();
-  // Go to signal tab
   showT('sig', document.querySelector('.rt'));
-  // Update curSig to this signal
   const found = [...btSigs, ...liveSigs].find(s => s.candleIdx === candleIdx);
   if (found) { curSig = found; renderCard(); }
 }
