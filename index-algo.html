@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>VJ Algo — Live Signal Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
@@ -12,106 +12,161 @@
   --border:#1e2d3d;--border2:#243040;
   --green:#00d084;--green2:rgba(0,208,132,.12);
   --red:#ff4d6d;--red2:rgba(255,77,109,.12);
-  --yellow:#f0b429;--blue:#3b9eff;
+  --yellow:#f0b429;--blue:#3b9eff;--purple:#a78bfa;
   --text:#e2e8f0;--text2:#7c8fa6;--text3:#3d5166;
 }
-body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden;}
-header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg2);}
-.logo{display:flex;align-items:center;gap:10px;}
-.logo-mark{width:32px;height:32px;background:var(--green);border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000;font-size:12px;}
-.logo-name{font-size:15px;font-weight:700;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+/* HEADER */
+header{display:flex;align-items:center;gap:12px;padding:0 16px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;}
+.logo{display:flex;align-items:center;gap:8px;margin-right:8px;}
+.logo-mark{width:28px;height:28px;background:var(--green);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000;font-size:11px;}
+.logo-name{font-size:14px;font-weight:700;}
 .logo-name span{color:var(--green);}
-.hdr-mid{display:flex;align-items:center;gap:20px;}
-.ws-status{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;}
-.ws-dot{width:7px;height:7px;border-radius:50%;animation:blink 1.5s infinite;}
+.sep{width:1px;height:24px;background:var(--border);}
+
+/* BOOKMARKS */
+.bookmarks{display:flex;gap:2px;}
+.bk{padding:4px 10px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);border:1px solid transparent;transition:all .15s;white-space:nowrap;}
+.bk.active{color:var(--green);background:var(--green2);border-color:rgba(0,208,132,.2);}
+.bk:hover:not(.active){color:var(--text);background:var(--bg3);}
+
+/* SEARCH */
+.search-wrap{position:relative;}
+.search-input{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px 5px 28px;color:var(--text);font-size:12px;font-family:'Space Grotesk',sans-serif;outline:none;width:140px;transition:all .2s;}
+.search-input:focus{border-color:var(--green);width:180px;}
+.search-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:12px;}
+.search-drop{position:absolute;top:calc(100% + 4px);left:0;width:200px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;z-index:100;overflow:hidden;display:none;}
+.search-drop.show{display:block;}
+.search-item{padding:8px 12px;font-size:12px;cursor:pointer;display:flex;justify-content:space-between;border-bottom:1px solid var(--border);}
+.search-item:last-child{border-bottom:none;}
+.search-item:hover{background:var(--bg4);}
+.search-item .si-name{font-weight:600;}
+.search-item .si-price{font-family:'JetBrains Mono',monospace;color:var(--text2);}
+
+/* TF */
+.tf-group{display:flex;gap:2px;}
+.tf{padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;color:var(--text2);background:transparent;border:none;font-family:'Space Grotesk',sans-serif;transition:all .15s;}
+.tf.active{color:var(--green);background:var(--green2);}
+.tf:hover:not(.active){color:var(--text);}
+
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.ws-badge{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;}
+.ws-dot{width:6px;height:6px;border-radius:50%;animation:pulse 1.5s infinite;}
 .ws-dot.connected{background:var(--green);}
 .ws-dot.connecting{background:var(--yellow);}
 .ws-dot.disconnected{background:var(--red);}
-@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
-.pair-tabs{display:flex;gap:3px;}
-.pair-tab{padding:6px 14px;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);background:transparent;border:1px solid transparent;transition:all .15s;}
-.pair-tab.active{color:var(--green);background:var(--green2);border-color:rgba(0,208,132,.25);}
-.tf-tabs{display:flex;gap:2px;}
-.tf-tab{padding:5px 10px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);background:transparent;border:none;font-family:'Space Grotesk',sans-serif;transition:all .15s;}
-.tf-tab.active{color:var(--green);background:var(--green2);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.back-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--border);border-radius:5px;color:var(--text2);text-decoration:none;font-size:11px;font-weight:600;transition:all .2s;}
+.back-btn:hover{border-color:var(--green);color:var(--green);}
 
-.main{display:grid;grid-template-columns:1fr 300px;height:calc(100vh - 61px);}
+/* MAIN LAYOUT */
+.main{display:grid;grid-template-columns:1fr 300px;flex:1;overflow:hidden;}
 
 /* CHART SIDE */
-.chart-side{display:flex;flex-direction:column;border-right:1px solid var(--border);}
-.price-bar{display:flex;align-items:center;gap:16px;padding:10px 18px;background:var(--bg2);border-bottom:1px solid var(--border);}
-.price-big{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:600;}
-.price-chg{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;padding:3px 8px;border-radius:4px;}
+.chart-side{display:flex;flex-direction:column;overflow:hidden;}
+.price-bar{display:flex;align-items:center;gap:12px;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;}
+.price-big{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;}
+.price-chg{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;}
 .up{color:var(--green);}
 .down{color:var(--red);}
 .up-bg{background:var(--green2);color:var(--green);}
 .down-bg{background:var(--red2);color:var(--red);}
-.ind-group{display:flex;gap:18px;margin-left:auto;flex-wrap:wrap;}
-.ind{display:flex;align-items:center;gap:5px;font-size:11px;}
-.ind-l{color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+.inds{display:flex;gap:14px;margin-left:auto;flex-wrap:wrap;}
+.ind{display:flex;align-items:center;gap:4px;font-size:10px;}
+.ind-l{color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
 .ind-v{font-family:'JetBrains Mono',monospace;font-weight:600;}
-.chart-box{flex:1;position:relative;overflow:hidden;}
-canvas{display:block;width:100%;height:100%;}
-.bottom-bar{display:flex;gap:20px;padding:8px 18px;border-top:1px solid var(--border);background:var(--bg2);flex-wrap:wrap;}
+.chart-wrap{flex:1;position:relative;cursor:crosshair;overflow:hidden;}
+canvas#chart{position:absolute;top:0;left:0;}
+.bottom-bar{display:flex;gap:14px;padding:6px 14px;border-top:1px solid var(--border);background:var(--bg2);flex-shrink:0;flex-wrap:wrap;}
 
 /* RIGHT PANEL */
-.right{display:flex;flex-direction:column;background:var(--bg2);overflow-y:auto;}
-.sec{padding:14px 14px 0;}
-.sec-lbl{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:10px;}
+.right{display:flex;flex-direction:column;background:var(--bg2);border-left:1px solid var(--border);overflow:hidden;}
+.right-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+.rt{flex:1;padding:9px;text-align:center;font-size:11px;font-weight:600;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+.rt.active{color:var(--green);border-bottom-color:var(--green);}
+.right-body{flex:1;overflow-y:auto;}
 
 /* SIGNAL CARD */
-.sig-card{border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:14px;}
-.sig-hdr{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;}
+.sig-card{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:12px 12px 8px;}
+.sig-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;}
 .sig-long .sig-hdr{background:rgba(0,208,132,.07);}
 .sig-short .sig-hdr{background:rgba(255,77,109,.07);}
-.sig-dir-wrap{display:flex;align-items:center;gap:8px;}
-.sig-icon{width:26px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;}
-.sig-long .sig-icon{background:var(--green2);}
-.sig-short .sig-icon{background:var(--red2);}
-.sig-name{font-size:14px;font-weight:700;}
-.sig-long .sig-name{color:var(--green);}
-.sig-short .sig-name{color:var(--red);}
-.sig-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;}
-.sig-long .sig-badge{background:var(--green2);color:var(--green);}
-.sig-short .sig-badge{background:var(--red2);color:var(--red);}
-
-.lvl-row{display:flex;align-items:center;justify-content:space-between;padding:8px 13px;border-bottom:1px solid var(--border);}
+.sig-dir{display:flex;align-items:center;gap:7px;}
+.sig-icon{width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;}
+.sig-long .sig-icon{background:var(--green2);color:var(--green);}
+.sig-short .sig-icon{background:var(--red2);color:var(--red);}
+.sig-nm{font-size:13px;font-weight:700;}
+.sig-long .sig-nm{color:var(--green);}
+.sig-short .sig-nm{color:var(--red);}
+.sig-pair-lbl{font-size:10px;color:var(--text2);}
+.sig-conf{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;}
+.sig-long .sig-conf{background:var(--green2);color:var(--green);}
+.sig-short .sig-conf{background:var(--red2);color:var(--red);}
+.lvl-row{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-bottom:1px solid var(--border);}
 .lvl-row:last-child{border-bottom:none;}
-.lvl-left{display:flex;align-items:center;gap:7px;}
-.lvl-dot{width:9px;height:9px;border-radius:50%;}
-.lvl-lbl{font-size:11px;font-weight:700;color:var(--text2);}
+.lvl-left{display:flex;align-items:center;gap:6px;}
+.lvl-dot{width:8px;height:8px;border-radius:50%;}
+.lvl-lbl{font-size:10px;font-weight:700;color:var(--text2);}
 .lvl-price{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;}
-.lvl-sub{font-size:10px;color:var(--text3);}
+.lvl-sub{font-size:9px;color:var(--text3);}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:0 12px 10px;}
+.sbox{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;}
+.sbox-l{font-size:9px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;}
+.sbox-v{font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace;}
 
 /* CONFLUENCE */
-.conf-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px;}
-.conf-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(30,45,61,.6);}
+.conf-card{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px;margin:0 12px 10px;}
+.conf-title{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:8px;}
+.conf-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(30,45,61,.5);}
 .conf-row:last-child{border-bottom:none;}
-.conf-name{font-size:11px;color:var(--text2);}
-.conf-right{display:flex;align-items:center;gap:7px;}
-.conf-val{font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:600;}
-.badge{width:17px;height:17px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;}
+.conf-nm{font-size:10px;color:var(--text2);}
+.conf-right{display:flex;align-items:center;gap:6px;}
+.conf-val{font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:600;}
+.badge{width:15px;height:15px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;}
 .b-pass{background:var(--green2);color:var(--green);}
 .b-fail{background:var(--red2);color:var(--red);}
 .b-warn{background:rgba(240,180,41,.12);color:var(--yellow);}
 
-/* STATS */
-.stats-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:14px;padding:0 14px;}
-.stat-box{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px 11px;}
-.stat-lbl{font-size:9px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
-.stat-val{font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;}
-
-/* HISTORY */
-.hist-list{display:flex;flex-direction:column;gap:5px;padding:0 14px 14px;}
-.hist-item{display:flex;align-items:center;gap:7px;padding:7px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;font-size:11px;}
-.h-dir{width:38px;padding:2px;border-radius:3px;text-align:center;font-weight:700;font-size:9px;}
+/* SIGNAL HISTORY LIST */
+.sec-lbl{font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;padding:0 12px 6px;}
+.hist-item{display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;margin:0 12px 5px;font-size:10px;}
+.h-dir{width:36px;padding:2px;border-radius:3px;text-align:center;font-weight:700;font-size:9px;}
 .h-long{background:var(--green2);color:var(--green);}
 .h-short{background:var(--red2);color:var(--red);}
 .h-pair{font-weight:600;color:var(--text);flex:1;}
 .h-res{font-family:'JetBrains Mono',monospace;font-weight:600;}
 .h-win{color:var(--green);}
 .h-loss{color:var(--red);}
-.h-time{color:var(--text3);font-size:10px;}
+.h-time{color:var(--text3);font-size:9px;}
+.h-status{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;}
+.h-sl{background:var(--red2);color:var(--red);}
+.h-tp1{background:rgba(0,208,132,.1);color:var(--green);}
+.h-tp2{background:rgba(0,208,132,.15);color:var(--green);}
+.h-tp3{background:rgba(0,208,132,.2);color:var(--green);}
+.h-open{background:rgba(59,158,255,.1);color:var(--blue);}
+
+/* NEWS TAB */
+.news-item{margin:0 12px 8px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;}
+.news-time{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--text3);margin-bottom:3px;display:flex;align-items:center;gap:6px;}
+.news-impact{width:6px;height:6px;border-radius:50%;}
+.news-impact.high{background:var(--red);}
+.news-impact.medium{background:var(--yellow);}
+.news-impact.low{background:var(--green);}
+.news-title{font-size:11px;font-weight:600;margin-bottom:2px;}
+.news-sub{font-size:10px;color:var(--text2);}
+.news-tag{display:inline-block;font-size:9px;padding:1px 6px;border-radius:3px;margin-top:4px;font-weight:700;}
+.tag-high{background:var(--red2);color:var(--red);}
+.tag-med{background:rgba(240,180,41,.12);color:var(--yellow);}
+.tag-low{background:var(--green2);color:var(--green);}
+.news-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px 4px;}
+.news-date{font-size:11px;font-weight:700;color:var(--text);}
+.news-filter{display:flex;gap:4px;padding:0 12px 8px;}
+.nf{padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--border);color:var(--text2);background:transparent;}
+.nf.active{border-color:var(--red);color:var(--red);background:var(--red2);}
 
 ::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
@@ -124,37 +179,54 @@ canvas{display:block;width:100%;height:100%;}
     <div class="logo-mark">VJ</div>
     <div class="logo-name">VJ <span>Algo</span></div>
   </div>
-  <div class="hdr-mid">
-    <div class="pair-tabs">
-      <div class="pair-tab active" onclick="switchPair('ETHUSDT',this)">ETH/USDT</div>
-      <div class="pair-tab" onclick="switchPair('BTCUSDT',this)">BTC/USDT</div>
-      <div class="pair-tab" onclick="switchPair('SOLUSDT',this)">SOL/USDT</div>
-    </div>
-    <div class="tf-tabs">
-      <div class="tf-tab" onclick="switchTF('1m',this)">1m</div>
-      <div class="tf-tab active" onclick="switchTF('5m',this)">5m</div>
-      <div class="tf-tab" onclick="switchTF('15m',this)">15m</div>
-      <div class="tf-tab" onclick="switchTF('1h',this)">1H</div>
-      <div class="tf-tab" onclick="switchTF('4h',this)">4H</div>
-    </div>
+  <div class="sep"></div>
+
+  <!-- BOOKMARKS -->
+  <div class="bookmarks" id="bookmarks">
+    <div class="bk active" onclick="selectPair('ETHUSDT',this)">ETH</div>
+    <div class="bk" onclick="selectPair('BTCUSDT',this)">BTC</div>
+    <div class="bk" onclick="selectPair('SOLUSDT',this)">SOL</div>
+    <div class="bk" onclick="selectPair('XRPUSDT',this)">XRP</div>
+    <div class="bk" onclick="selectPair('XAUUSDT',this)">GOLD</div>
   </div>
-  <div style="display:flex;align-items:center;gap:12px;">
-    <a href="https://vjtrend06.github.io/vj-trading-desk/" style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:6px;color:var(--text2);text-decoration:none;font-size:12px;font-weight:600;transition:all .2s;" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">← Trading Desk</a>
-    <div class="ws-status">
+  <div class="sep"></div>
+
+  <!-- SEARCH -->
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="search-input" id="searchInput" placeholder="Search coin..." oninput="onSearch(this.value)" onblur="setTimeout(()=>closeSearch(),200)"/>
+    <div class="search-drop" id="searchDrop"></div>
+  </div>
+  <div class="sep"></div>
+
+  <!-- TIMEFRAMES -->
+  <div class="tf-group">
+    <div class="tf" onclick="selectTF('1m',this)">1m</div>
+    <div class="tf active" onclick="selectTF('5m',this)">5m</div>
+    <div class="tf" onclick="selectTF('15m',this)">15m</div>
+    <div class="tf" onclick="selectTF('30m',this)">30m</div>
+    <div class="tf" onclick="selectTF('1h',this)">1H</div>
+    <div class="tf" onclick="selectTF('4h',this)">4H</div>
+    <div class="tf" onclick="selectTF('6h',this)">6H</div>
+  </div>
+
+  <div class="hdr-right">
+    <div class="ws-badge">
       <div class="ws-dot connecting" id="wsDot"></div>
-      <span id="wsLbl" style="color:var(--text2)">Connecting...</span>
+      <span id="wsLbl" style="color:var(--text2);font-size:11px;font-weight:600;">Connecting...</span>
     </div>
+    <a class="back-btn" href="https://vjtrend06.github.io/vj-trading-desk/">← Desk</a>
   </div>
 </header>
 
 <div class="main">
+  <!-- CHART SIDE -->
   <div class="chart-side">
     <div class="price-bar">
-      <div>
-        <div class="price-big up" id="priceBig">--</div>
-      </div>
+      <div class="price-big up" id="priceBig">--</div>
       <div class="price-chg up-bg" id="priceChg">--%</div>
-      <div class="ind-group">
+      <div style="font-size:11px;color:var(--text2);font-weight:600;" id="pairLabel">ETH/USDT · Perpetual</div>
+      <div class="inds">
         <div class="ind"><span class="ind-l">EMA9</span><span class="ind-v" id="iEma9">--</span></div>
         <div class="ind"><span class="ind-l">EMA21</span><span class="ind-v" id="iEma21">--</span></div>
         <div class="ind"><span class="ind-l">RSI</span><span class="ind-v" id="iRsi" style="color:var(--yellow)">--</span></div>
@@ -162,116 +234,193 @@ canvas{display:block;width:100%;height:100%;}
         <div class="ind"><span class="ind-l">ADX</span><span class="ind-v" id="iAdx">--</span></div>
       </div>
     </div>
-    <div class="chart-box"><canvas id="chart"></canvas></div>
+    <div class="chart-wrap" id="chartWrap">
+      <canvas id="chart"></canvas>
+    </div>
     <div class="bottom-bar">
       <div class="ind"><span class="ind-l">Trend</span><span class="ind-v" id="bTrend">--</span></div>
       <div class="ind"><span class="ind-l">Structure</span><span class="ind-v" id="bStruct">--</span></div>
       <div class="ind"><span class="ind-l">Volume</span><span class="ind-v" id="bVol" style="color:var(--blue)">--</span></div>
       <div class="ind"><span class="ind-l">Confluence</span><span class="ind-v" id="bConf">--</span></div>
       <div class="ind"><span class="ind-l">Signal</span><span class="ind-v" id="bSig">--</span></div>
-      <div class="ind" style="margin-left:auto"><span class="ind-l">Last candle</span><span class="ind-v" id="bTime" style="color:var(--text3)">--</span></div>
+      <div class="ind" style="margin-left:auto;"><span class="ind-l">Candle</span><span class="ind-v" id="bTime" style="color:var(--text3)">--</span></div>
     </div>
   </div>
 
+  <!-- RIGHT PANEL -->
   <div class="right">
-    <div class="sec">
-      <div class="sec-lbl">Live Signal</div>
-      <div class="sig-card sig-long" id="sigCard">
-        <div class="sig-hdr">
-          <div class="sig-dir-wrap">
-            <div class="sig-icon" id="sigIcon">▲</div>
-            <div class="sig-name" id="sigName">LONG</div>
-            <div style="font-size:11px;color:var(--text2);margin-left:2px;" id="sigPair">ETH/USDT</div>
+    <div class="right-tabs">
+      <div class="rt active" onclick="showTab('signal',this)">Signal</div>
+      <div class="rt" onclick="showTab('history',this)">History</div>
+      <div class="rt" onclick="showTab('news',this)">📰 News</div>
+    </div>
+    <div class="right-body" id="rightBody">
+      <!-- Signal tab (default) -->
+      <div id="tabSignal">
+        <div class="sig-card sig-long" id="sigCard">
+          <div class="sig-hdr">
+            <div class="sig-dir">
+              <div class="sig-icon" id="sigIcon">▲</div>
+              <div class="sig-nm" id="sigNm">LONG</div>
+              <div class="sig-pair-lbl" id="sigPairLbl">ETH/USDT</div>
+            </div>
+            <div class="sig-conf" id="sigConf">--</div>
           </div>
-          <div class="sig-badge" id="sigBadge">-- Conf</div>
-        </div>
-        <div id="sigLevels">
           <div class="lvl-row">
-            <div class="lvl-left"><div class="lvl-dot" style="background:#3b9eff;box-shadow:0 0 5px #3b9eff55;"></div><div class="lvl-lbl">ENTRY</div></div>
-            <div><div class="lvl-price" id="lvEntry" style="color:#3b9eff;">--</div><div class="lvl-sub">Market price</div></div>
+            <div class="lvl-left"><div class="lvl-dot" style="background:#3b9eff;box-shadow:0 0 4px #3b9eff55;"></div><div class="lvl-lbl">ENTRY</div></div>
+            <div><div class="lvl-price" id="lvE" style="color:#3b9eff;">--</div><div class="lvl-sub">Market price</div></div>
           </div>
           <div class="lvl-row">
             <div class="lvl-left"><div class="lvl-dot" style="background:var(--red);"></div><div class="lvl-lbl">STOP LOSS</div></div>
-            <div><div class="lvl-price down" id="lvSL">--</div><div class="lvl-sub" id="lvSLsub">ATR × 1.5</div></div>
+            <div><div class="lvl-price down" id="lvSL">--</div><div class="lvl-sub" id="lvSLs">ATR×1.5</div></div>
           </div>
           <div class="lvl-row">
             <div class="lvl-left"><div class="lvl-dot" style="background:var(--green);opacity:.5;"></div><div class="lvl-lbl">TP1 · 50%</div></div>
-            <div><div class="lvl-price up" id="lvTP1">--</div><div class="lvl-sub" id="rr1">1:1R</div></div>
+            <div><div class="lvl-price up" id="lvT1">--</div><div class="lvl-sub">1:1R</div></div>
           </div>
           <div class="lvl-row">
             <div class="lvl-left"><div class="lvl-dot" style="background:var(--green);opacity:.75;"></div><div class="lvl-lbl">TP2 · 30%</div></div>
-            <div><div class="lvl-price up" id="lvTP2">--</div><div class="lvl-sub" id="rr2">1:2R</div></div>
+            <div><div class="lvl-price up" id="lvT2">--</div><div class="lvl-sub">1:2R</div></div>
           </div>
           <div class="lvl-row">
             <div class="lvl-left"><div class="lvl-dot" style="background:var(--green);"></div><div class="lvl-lbl">TP3 · 20%</div></div>
-            <div><div class="lvl-price up" id="lvTP3">--</div><div class="lvl-sub" id="rr3">1:3R</div></div>
+            <div><div class="lvl-price up" id="lvT3">--</div><div class="lvl-sub">1:3R</div></div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <div class="stats-grid">
-      <div class="stat-box"><div class="stat-lbl">Win Rate</div><div class="stat-val up" id="sWR">--%</div></div>
-      <div class="stat-box"><div class="stat-lbl">Signals</div><div class="stat-val" id="sSig" style="color:var(--blue)">0</div></div>
-      <div class="stat-box"><div class="stat-lbl">Avg R:R</div><div class="stat-val up" id="sRR">--</div></div>
-    </div>
+        <div class="stats-row">
+          <div class="sbox"><div class="sbox-l">Win Rate</div><div class="sbox-v up" id="sWR">--%</div></div>
+          <div class="sbox"><div class="sbox-l">Signals</div><div class="sbox-v" id="sSig" style="color:var(--blue)">0</div></div>
+          <div class="sbox"><div class="sbox-l">Avg R:R</div><div class="sbox-v up" id="sRR">--</div></div>
+        </div>
 
-    <div class="sec" style="padding-bottom:10px;">
-      <div class="sec-lbl">Algo Engine</div>
-      <div class="conf-card">
-        <div class="conf-row">
-          <span class="conf-name">EMA9 > EMA21</span>
-          <div class="conf-right"><span class="conf-val" id="cv1">--</span><div class="badge b-warn" id="cs1">?</div></div>
-        </div>
-        <div class="conf-row">
-          <span class="conf-name">RSI 40–70 (long) / 30–60 (short)</span>
-          <div class="conf-right"><span class="conf-val" id="cv2">--</span><div class="badge b-warn" id="cs2">?</div></div>
-        </div>
-        <div class="conf-row">
-          <span class="conf-name">ADX > 20 (trend)</span>
-          <div class="conf-right"><span class="conf-val" id="cv3">--</span><div class="badge b-warn" id="cs3">?</div></div>
-        </div>
-        <div class="conf-row">
-          <span class="conf-name">Price > EMA21</span>
-          <div class="conf-right"><span class="conf-val" id="cv4">--</span><div class="badge b-warn" id="cs4">?</div></div>
-        </div>
-        <div class="conf-row">
-          <span class="conf-name">Volume above average</span>
-          <div class="conf-right"><span class="conf-val" id="cv5">--</span><div class="badge b-warn" id="cs5">?</div></div>
+        <div class="conf-card">
+          <div class="conf-title">Algo Engine · EMA+RSI+ATR+ADX</div>
+          <div class="conf-row"><span class="conf-nm">EMA9 vs EMA21</span><div class="conf-right"><span class="conf-val" id="cv1">--</span><div class="badge b-warn" id="cs1">?</div></div></div>
+          <div class="conf-row"><span class="conf-nm">RSI zone</span><div class="conf-right"><span class="conf-val" id="cv2">--</span><div class="badge b-warn" id="cs2">?</div></div></div>
+          <div class="conf-row"><span class="conf-nm">ADX strength</span><div class="conf-right"><span class="conf-val" id="cv3">--</span><div class="badge b-warn" id="cs3">?</div></div></div>
+          <div class="conf-row"><span class="conf-nm">Price vs EMA21</span><div class="conf-right"><span class="conf-val" id="cv4">--</span><div class="badge b-warn" id="cs4">?</div></div></div>
+          <div class="conf-row"><span class="conf-nm">Volume</span><div class="conf-right"><span class="conf-val" id="cv5">--</span><div class="badge b-warn" id="cs5">?</div></div></div>
         </div>
       </div>
-    </div>
 
-    <div class="sec" style="padding-bottom:0;">
-      <div class="sec-lbl">Signal History</div>
+      <!-- History tab -->
+      <div id="tabHistory" style="display:none;padding-top:10px;">
+        <div class="sec-lbl">All Signals · Chart + List</div>
+        <div id="histList"></div>
+      </div>
+
+      <!-- News tab -->
+      <div id="tabNews" style="display:none;">
+        <div class="news-header">
+          <div class="news-date" id="newsDate">--</div>
+          <div style="font-size:9px;color:var(--text3);">IST Time</div>
+        </div>
+        <div class="news-filter">
+          <div class="nf active" onclick="filterNews('all',this)">All</div>
+          <div class="nf" onclick="filterNews('high',this)" style="border-color:var(--red);color:var(--red);">🔴 High</div>
+          <div class="nf" onclick="filterNews('medium',this)" style="border-color:var(--yellow);color:var(--yellow);">🟡 Medium</div>
+        </div>
+        <div id="newsList"></div>
+      </div>
     </div>
-    <div class="hist-list" id="histList"></div>
   </div>
 </div>
 
 <script>
-// =====================
+// =====================================================================
 // STATE
-// =====================
+// =====================================================================
 let symbol = 'ETHUSDT';
 let tf = '5m';
-let candles = [];       // {o,h,l,c,v, t, closed}
-let liveCandle = null;  // current forming candle
+let candles = [];
+let liveCandle = null;
 let ws = null;
-let wsConnected = false;
 let signalHistory = [];
 let lastSignalTime = 0;
+let lastSignalDir = null;
+let lastSignalScore = 0;
+let currentSignal = null; // locked signal
 
-// =====================
-// BINANCE REST — historical candles
-// =====================
-async function fetchHistory(sym, interval, limit=150) {
+// Chart pan/zoom
+let viewOffset = 0;   // how many candles from right we've scrolled
+let viewScale = 10;   // candle width in pixels
+let isPanning = false;
+let panStartX = 0;
+let panStartOffset = 0;
+
+const SIGNAL_LOCK_CANDLES = 3; // signal stays locked for N candles min
+let signalLockCounter = 0;
+
+// All chart signals (persistent arrows)
+let chartSignals = [];
+
+// =====================================================================
+// SEARCH DATA
+// =====================================================================
+const POPULAR_PAIRS = [
+  {sym:'ETHUSDT',name:'Ethereum',short:'ETH'},
+  {sym:'BTCUSDT',name:'Bitcoin',short:'BTC'},
+  {sym:'SOLUSDT',name:'Solana',short:'SOL'},
+  {sym:'XRPUSDT',name:'XRP',short:'XRP'},
+  {sym:'XAUUSDT',name:'Gold',short:'GOLD'},
+  {sym:'BNBUSDT',name:'BNB',short:'BNB'},
+  {sym:'DOGEUSDT',name:'Dogecoin',short:'DOGE'},
+  {sym:'ADAUSDT',name:'Cardano',short:'ADA'},
+  {sym:'AVAXUSDT',name:'Avalanche',short:'AVAX'},
+  {sym:'DOTUSDT',name:'Polkadot',short:'DOT'},
+  {sym:'LINKUSDT',name:'Chainlink',short:'LINK'},
+  {sym:'MATICUSDT',name:'Polygon',short:'MATIC'},
+  {sym:'LTCUSDT',name:'Litecoin',short:'LTC'},
+  {sym:'UNIUSDT',name:'Uniswap',short:'UNI'},
+  {sym:'ATOMUSDT',name:'Cosmos',short:'ATOM'},
+  {sym:'NEARUSDT',name:'NEAR',short:'NEAR'},
+  {sym:'APTUSDT',name:'Aptos',short:'APT'},
+  {sym:'ARBUSDT',name:'Arbitrum',short:'ARB'},
+  {sym:'OPUSDT',name:'Optimism',short:'OP'},
+  {sym:'SUIUSDT',name:'Sui',short:'SUI'},
+];
+
+function onSearch(val) {
+  const drop = document.getElementById('searchDrop');
+  if (!val.trim()) { drop.classList.remove('show'); return; }
+  const q = val.toUpperCase();
+  const matches = POPULAR_PAIRS.filter(p => p.short.includes(q) || p.name.toUpperCase().includes(q)).slice(0, 8);
+  if (!matches.length) { drop.classList.remove('show'); return; }
+  drop.innerHTML = matches.map(p => `
+    <div class="search-item" onclick="selectSearchPair('${p.sym}','${p.short}')">
+      <span class="si-name">${p.short}/USDT</span>
+      <span class="si-price">${p.name}</span>
+    </div>`).join('');
+  drop.classList.add('show');
+}
+
+function selectSearchPair(sym, short) {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchDrop').classList.remove('show');
+  // Deactivate bookmarks
+  document.querySelectorAll('.bk').forEach(b => b.classList.remove('active'));
+  symbol = sym;
+  document.getElementById('pairLabel').textContent = short + '/USDT · Perpetual';
+  chartSignals = [];
+  candles = [];
+  viewOffset = 0;
+  init();
+}
+
+function closeSearch() {
+  document.getElementById('searchDrop').classList.remove('show');
+}
+
+// =====================================================================
+// FETCH HISTORY
+// =====================================================================
+async function fetchHistory(sym, interval, limit=300) {
   const base = `https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${limit}`;
   const proxies = [
     base,
     `https://corsproxy.io/?${encodeURIComponent(base)}`,
     `https://api.allorigins.win/raw?url=${encodeURIComponent(base)}`,
-    `https://thingproxy.freeboard.io/fetch/${base}`,
   ];
   for (const url of proxies) {
     try {
@@ -279,486 +428,622 @@ async function fetchHistory(sym, interval, limit=150) {
       if (!r.ok) continue;
       const data = await r.json();
       if (!Array.isArray(data) || !data.length) continue;
-      return data.map(k => ({
-        t: +k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5], closed: true
-      }));
-    } catch(e) {
-      console.warn('Fetch attempt failed:', e.message);
-    }
+      return data.map(k => ({ t:+k[0], o:+k[1], h:+k[2], l:+k[3], c:+k[4], v:+k[5], closed:true }));
+    } catch(e) { console.warn('proxy failed', e.message); }
   }
-  // All failed — WebSocket will still connect and build candles live
-  document.getElementById('wsLbl').textContent = 'WS Only (no history)';
   return [];
 }
 
-// =====================
-// BINANCE WEBSOCKET — live kline
-// =====================
+// =====================================================================
+// WEBSOCKET
+// =====================================================================
 function connectWS(sym, interval) {
-  if (ws) { ws.close(); ws = null; }
+  if (ws) { try{ws.close();}catch(e){} ws=null; }
   setWsStatus('connecting');
   const stream = `${sym.toLowerCase()}@kline_${interval}`;
-  // Try primary, fallback to alternate port
-  const urls = [
-    `wss://stream.binance.com:9443/ws/${stream}`,
-    `wss://stream.binance.com:443/ws/${stream}`,
-  ];
   let urlIdx = 0;
-  function tryConnect() {
+  const urls = [`wss://stream.binance.com:9443/ws/${stream}`,`wss://stream.binance.com:443/ws/${stream}`];
+  function tryConn() {
     ws = new WebSocket(urls[urlIdx % urls.length]);
-    ws.onopen = () => { setWsStatus('connected'); };
-    ws.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      const k = msg.k;
-      liveCandle = { t:k.t, o:+k.o, h:+k.h, l:+k.l, c:+k.c, v:+k.v, closed:k.x };
+    ws.onopen = () => setWsStatus('connected');
+    ws.onmessage = e => {
+      const k = JSON.parse(e.data).k;
+      liveCandle = { t:+k.t, o:+k.o, h:+k.h, l:+k.l, c:+k.c, v:+k.v, closed:k.x };
       if (k.x) {
         candles.push({...liveCandle});
-        if (candles.length > 200) candles.shift();
+        if (candles.length > 500) candles.shift();
         liveCandle = null;
+        signalLockCounter = Math.max(0, signalLockCounter - 1);
         runAlgo();
       }
       updatePriceBar(+k.c);
       drawChart();
     };
     ws.onerror = () => setWsStatus('disconnected');
-    ws.onclose = () => {
-      setWsStatus('disconnected');
-      urlIdx++;
-      setTimeout(tryConnect, 3000);
-    };
+    ws.onclose = () => { setWsStatus('disconnected'); urlIdx++; setTimeout(tryConn, 3000); };
   }
-  tryConnect();
+  tryConn();
 }
 
 function setWsStatus(s) {
-  wsConnected = s === 'connected';
   const dot = document.getElementById('wsDot');
   const lbl = document.getElementById('wsLbl');
-  const map = {
-    connected:    { cls:'connected',    txt:'Live',              color:'var(--green)' },
-    connecting:   { cls:'connecting',   txt:'Connecting...',     color:'var(--yellow)' },
-    disconnected: { cls:'disconnected', txt:'Reconnecting...',   color:'var(--red)' },
-  };
-  const st = map[s] || map.connecting;
-  dot.className = 'ws-dot ' + st.cls;
-  lbl.textContent = st.txt;
-  lbl.style.color = st.color;
+  const map = { connected:{cls:'connected',txt:'Live',col:'var(--green)'}, connecting:{cls:'connecting',txt:'Connecting...',col:'var(--yellow)'}, disconnected:{cls:'disconnected',txt:'Reconnecting...',col:'var(--red)'} };
+  const st = map[s]||map.connecting;
+  dot.className='ws-dot '+st.cls;
+  lbl.textContent=st.txt; lbl.style.color=st.col;
 }
 
-// =====================
-// INDICATORS (real calc)
-// =====================
+// =====================================================================
+// INDICATORS
+// =====================================================================
 function calcEMA(data, len) {
-  const k = 2 / (len + 1);
-  let ema = data[0];
-  return data.map(v => { ema = v * k + ema * (1 - k); return ema; });
+  const k = 2/(len+1); let e = data[0];
+  return data.map(v => { e = v*k + e*(1-k); return e; });
 }
-
 function calcRSI(closes, len=14) {
-  if (closes.length < len + 1) return Array(closes.length).fill(50);
-  let gains = 0, losses = 0;
-  for (let i = 1; i <= len; i++) {
-    const d = closes[i] - closes[i-1];
-    if (d > 0) gains += d; else losses -= d;
-  }
-  let avgG = gains / len, avgL = losses / len;
-  const rsi = [50];
-  for (let i = len + 1; i < closes.length; i++) {
-    const d = closes[i] - closes[i-1];
-    avgG = (avgG * (len-1) + Math.max(d,0)) / len;
-    avgL = (avgL * (len-1) + Math.max(-d,0)) / len;
-    rsi.push(avgL === 0 ? 100 : 100 - 100/(1 + avgG/avgL));
+  if (closes.length < len+1) return Array(closes.length).fill(50);
+  let gains=0, losses=0;
+  for (let i=1;i<=len;i++) { const d=closes[i]-closes[i-1]; if(d>0)gains+=d; else losses-=d; }
+  let ag=gains/len, al=losses/len;
+  const rsi=[50];
+  for (let i=len+1;i<closes.length;i++) {
+    const d=closes[i]-closes[i-1];
+    ag=(ag*(len-1)+Math.max(d,0))/len;
+    al=(al*(len-1)+Math.max(-d,0))/len;
+    rsi.push(al===0?100:100-100/(1+ag/al));
   }
   return rsi;
 }
-
 function calcATR(highs, lows, closes, len=14) {
-  const trs = [];
-  for (let i = 1; i < closes.length; i++) {
-    trs.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
-  }
-  let atr = trs.slice(0,len).reduce((a,b)=>a+b,0)/len;
-  const atrs = [atr];
-  for (let i = len; i < trs.length; i++) { atr = (atr*(len-1)+trs[i])/len; atrs.push(atr); }
+  const trs=[];
+  for (let i=1;i<closes.length;i++) trs.push(Math.max(highs[i]-lows[i],Math.abs(highs[i]-closes[i-1]),Math.abs(lows[i]-closes[i-1])));
+  let atr=trs.slice(0,len).reduce((a,b)=>a+b,0)/len;
+  const atrs=[atr];
+  for (let i=len;i<trs.length;i++) { atr=(atr*(len-1)+trs[i])/len; atrs.push(atr); }
   return atrs;
 }
-
 function calcADX(highs, lows, closes, len=14) {
-  if (closes.length < len*2) return Array(closes.length).fill(20);
-  const dxArr = [];
-  for (let i = 1; i < closes.length; i++) {
-    const upMove = highs[i] - highs[i-1];
-    const downMove = lows[i-1] - lows[i];
-    const tr = Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1]));
-    const pdm = upMove > downMove && upMove > 0 ? upMove : 0;
-    const ndm = downMove > upMove && downMove > 0 ? downMove : 0;
-    dxArr.push({tr, pdm, ndm});
+  if (closes.length<len*2) return Array(closes.length).fill(20);
+  const dx=[];
+  for (let i=1;i<closes.length;i++) {
+    const up=highs[i]-highs[i-1], down=lows[i-1]-lows[i];
+    const tr=Math.max(highs[i]-lows[i],Math.abs(highs[i]-closes[i-1]),Math.abs(lows[i]-closes[i-1]));
+    const pdm=up>down&&up>0?up:0, ndm=down>up&&down>0?down:0;
+    dx.push({tr,pdm,ndm});
   }
-  let trS=0, pdmS=0, ndmS=0;
-  for (let i=0;i<len;i++) { trS+=dxArr[i].tr; pdmS+=dxArr[i].pdm; ndmS+=dxArr[i].ndm; }
-  const adx = [];
-  let adxVal = 0;
-  for (let i=len;i<dxArr.length;i++) {
-    trS = trS - trS/len + dxArr[i].tr;
-    pdmS = pdmS - pdmS/len + dxArr[i].pdm;
-    ndmS = ndmS - ndmS/len + dxArr[i].ndm;
-    const pdi = 100*pdmS/trS, ndi = 100*ndmS/trS;
-    const dx = Math.abs(pdi-ndi)/(pdi+ndi)*100;
-    adxVal = adxVal === 0 ? dx : (adxVal*(len-1)+dx)/len;
-    adx.push(adxVal);
+  let trS=0,pdmS=0,ndmS=0;
+  for(let i=0;i<len;i++){trS+=dx[i].tr;pdmS+=dx[i].pdm;ndmS+=dx[i].ndm;}
+  let adxV=0; const adx=[];
+  for(let i=len;i<dx.length;i++){
+    trS=trS-trS/len+dx[i].tr; pdmS=pdmS-pdmS/len+dx[i].pdm; ndmS=ndmS-ndmS/len+dx[i].ndm;
+    const pdi=100*pdmS/trS, ndi=100*ndmS/trS;
+    const d=Math.abs(pdi-ndi)/(pdi+ndi+.0001)*100;
+    adxV=adxV===0?d:(adxV*(len-1)+d)/len; adx.push(adxV);
   }
   return adx;
 }
 
-// =====================
+// =====================================================================
 // ALGO ENGINE
-// =====================
+// =====================================================================
 function runAlgo() {
   const all = getAllCandles();
   if (all.length < 30) return;
-  const closes = all.map(c=>c.c);
-  const highs = all.map(c=>c.h);
-  const lows = all.map(c=>c.l);
-  const vols = all.map(c=>c.v);
-  const n = closes.length;
+  const closes=all.map(c=>c.c), highs=all.map(c=>c.h), lows=all.map(c=>c.l), vols=all.map(c=>c.v);
+  const n=closes.length;
+  const ema9=calcEMA(closes,9), ema21=calcEMA(closes,21);
+  const rsi=calcRSI(closes,14), atr=calcATR(highs,lows,closes,14), adx=calcADX(highs,lows,closes,14);
+  const dp=closes[n-1]>100?2:closes[n-1]>1?3:4;
+  const ce=closes[n-1], e9=ema9[n-1], e21=ema21[n-1];
+  const cr=rsi[rsi.length-1]||50, ca=atr[atr.length-1]||ce*.005, cd=adx[adx.length-1]||20;
+  const avgVol=vols.slice(-20).reduce((a,b)=>a+b,0)/20, cv=vols[n-1];
 
-  const ema9 = calcEMA(closes, 9);
-  const ema21 = calcEMA(closes, 21);
-  const rsi = calcRSI(closes, 14);
-  const atr = calcATR(highs, lows, closes, 14);
-  const adx = calcADX(highs, lows, closes, 14);
-
-  const curClose = closes[n-1];
-  const curEma9 = ema9[n-1];
-  const curEma21 = ema21[n-1];
-  const curRsi = rsi[rsi.length-1] || 50;
-  const curAtr = atr[atr.length-1] || curClose * 0.005;
-  const curAdx = adx[adx.length-1] || 20;
-  const avgVol = vols.slice(-20).reduce((a,b)=>a+b,0)/20;
-  const curVol = vols[n-1];
-
-  // Update indicator display
-  const dp = curClose > 100 ? 2 : curClose > 1 ? 3 : 4;
-  document.getElementById('iEma9').textContent = curEma9.toFixed(dp);
-  document.getElementById('iEma9').className = 'ind-v ' + (curEma9 > curEma21 ? 'up' : 'down');
-  document.getElementById('iEma21').textContent = curEma21.toFixed(dp);
-  document.getElementById('iRsi').textContent = curRsi.toFixed(1);
-  document.getElementById('iRsi').style.color = curRsi > 65 ? 'var(--red)' : curRsi < 35 ? 'var(--green)' : 'var(--yellow)';
-  document.getElementById('iAtr').textContent = curAtr.toFixed(dp);
-  document.getElementById('iAdx').textContent = curAdx.toFixed(1);
-  document.getElementById('iAdx').className = 'ind-v ' + (curAdx > 20 ? 'up' : 'down');
+  // Update indicators
+  document.getElementById('iEma9').textContent=e9.toFixed(dp);
+  document.getElementById('iEma9').className='ind-v '+(e9>e21?'up':'down');
+  document.getElementById('iEma21').textContent=e21.toFixed(dp);
+  document.getElementById('iRsi').textContent=cr.toFixed(1);
+  document.getElementById('iRsi').style.color=cr>65?'var(--red)':cr<35?'var(--green)':'var(--yellow)';
+  document.getElementById('iAtr').textContent=ca.toFixed(dp);
+  document.getElementById('iAdx').textContent=cd.toFixed(1);
+  document.getElementById('iAdx').className='ind-v '+(cd>20?'up':'down');
 
   // LONG conditions
-  const longC1 = curEma9 > curEma21;
-  const longC2 = curRsi >= 40 && curRsi <= 70;
-  const longC3 = curAdx >= 20;
-  const longC4 = curClose > curEma21;
-  const longC5 = curVol > avgVol * 0.8;
-  const longScore = [longC1,longC2,longC3,longC4,longC5].filter(Boolean).length;
-
+  const lc1=e9>e21, lc2=cr>=40&&cr<=70, lc3=cd>=20, lc4=ce>e21, lc5=cv>avgVol*.8;
   // SHORT conditions
-  const shortC1 = curEma9 < curEma21;
-  const shortC2 = curRsi >= 30 && curRsi <= 60;
-  const shortC3 = curAdx >= 20;
-  const shortC4 = curClose < curEma21;
-  const shortC5 = curVol > avgVol * 0.8;
-  const shortScore = [shortC1,shortC2,shortC3,shortC4,shortC5].filter(Boolean).length;
+  const sc1=e9<e21, sc2=cr>=30&&cr<=60, sc3=cd>=20, sc4=ce<e21, sc5=cv>avgVol*.8;
+  const lScore=[lc1,lc2,lc3,lc4,lc5].filter(Boolean).length;
+  const sScore=[sc1,sc2,sc3,sc4,sc5].filter(Boolean).length;
+  const isLong = lScore >= sScore;
+  const score = isLong ? lScore : sScore;
 
-  const isLong = longScore >= shortScore;
-  const score = isLong ? longScore : shortScore;
-  const c1 = isLong ? longC1 : shortC1;
-  const c2 = isLong ? longC2 : shortC2;
-
-  // Update confluence UI
-  setBadge('cv1','cs1', c1, `${curEma9.toFixed(dp)} ${isLong?'>':'<'} ${curEma21.toFixed(dp)}`);
-  setBadge('cv2','cs2', c2, curRsi.toFixed(1));
-  setBadge('cv3','cs3', longC3, curAdx.toFixed(1));
-  setBadge('cv4','cs4', isLong ? longC4 : shortC4, isLong ? 'Above EMA21':'Below EMA21');
-  setBadge('cv5','cs5', longC5, curVol > avgVol ? 'HIGH' : 'LOW');
+  // Confluence badges
+  setBadge('cv1','cs1', isLong?lc1:sc1, `${e9.toFixed(dp)} ${isLong?'>':'<'} ${e21.toFixed(dp)}`);
+  setBadge('cv2','cs2', isLong?lc2:sc2, cr.toFixed(1));
+  setBadge('cv3','cs3', lc3, cd.toFixed(1));
+  setBadge('cv4','cs4', isLong?lc4:sc4, isLong?'Above EMA21':'Below EMA21');
+  setBadge('cv5','cs5', lc5, cv>avgVol?'HIGH':'LOW');
 
   // Bottom bar
-  document.getElementById('bTrend').textContent = isLong ? 'BULLISH' : 'BEARISH';
-  document.getElementById('bTrend').className = 'ind-v ' + (isLong ? 'up' : 'down');
-  const prevClose = closes[n-2] || closes[n-1];
-  const bos = curClose > Math.max(...closes.slice(-10,-1)) ? 'BOS ↑' : curClose < Math.min(...closes.slice(-10,-1)) ? 'BOS ↓' : 'RANGE';
-  document.getElementById('bStruct').textContent = bos;
-  document.getElementById('bStruct').className = 'ind-v ' + (bos.includes('↑') ? 'up' : bos.includes('↓') ? 'down' : '');
-  document.getElementById('bVol').textContent = curVol > avgVol * 1.5 ? 'VERY HIGH' : curVol > avgVol ? 'HIGH' : 'NORMAL';
-  document.getElementById('bConf').textContent = score + '/5';
-  document.getElementById('bConf').className = 'ind-v ' + (score >= 4 ? 'up' : score >= 3 ? '' : 'down');
+  document.getElementById('bTrend').textContent=isLong?'BULLISH':'BEARISH';
+  document.getElementById('bTrend').className='ind-v '+(isLong?'up':'down');
+  const bos=ce>Math.max(...closes.slice(-10,-1))?'BOS ↑':ce<Math.min(...closes.slice(-10,-1))?'BOS ↓':'RANGE';
+  document.getElementById('bStruct').textContent=bos;
+  document.getElementById('bStruct').className='ind-v '+(bos.includes('↑')?'up':bos.includes('↓')?'down':'');
+  document.getElementById('bVol').textContent=cv>avgVol*1.5?'VERY HIGH':cv>avgVol?'HIGH':'NORMAL';
+  document.getElementById('bConf').textContent=score+'/5';
+  document.getElementById('bConf').className='ind-v '+(score>=4?'up':score>=3?'':'down');
+  document.getElementById('bSig').textContent=score>=4?(isLong?'▲ LONG':'▼ SHORT'):score>=3?'WATCH':'NO SIG';
+  document.getElementById('bSig').className='ind-v '+(score>=4?(isLong?'up':'down'):'');
+  const lt=all[all.length-1].t;
+  document.getElementById('bTime').textContent=new Date(lt).toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 
-  // Only fire signal if score >= 3 and enough time passed
+  // === SIGNAL FIRE (with stability lock) ===
   const now = Date.now();
-  if (score >= 3 && (now - lastSignalTime) > 60000) {
+  const dirChanged = lastSignalDir !== null && lastSignalDir !== (isLong?'LONG':'SHORT');
+  const canFire = score >= 3 && (now - lastSignalTime > 90000) && signalLockCounter === 0;
+  const shouldFire = canFire && (!dirChanged || score >= 4); // direction flip needs score>=4
+
+  if (shouldFire) {
     lastSignalTime = now;
-    fireSignal(isLong, curClose, curAtr, score, curEma9, curEma21, curRsi, curAdx, curVol > avgVol);
+    lastSignalDir = isLong ? 'LONG' : 'SHORT';
+    signalLockCounter = SIGNAL_LOCK_CANDLES;
+    fireSignal(isLong, ce, ca, score);
   }
 
-  document.getElementById('bSig').textContent = score >= 4 ? (isLong ? '▲ LONG' : '▼ SHORT') : score >= 3 ? 'WATCH' : 'NO SIG';
-  document.getElementById('bSig').className = 'ind-v ' + (score >= 4 ? (isLong ? 'up' : 'down') : '');
-
-  // timestamp
-  const lastT = all[all.length-1].t;
-  document.getElementById('bTime').textContent = new Date(lastT).toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  // Always update signal card with current locked signal
+  if (currentSignal) updateSignalCard(currentSignal);
 }
 
-function setBadge(vid, sid, pass, val) {
-  document.getElementById(vid).textContent = val;
-  document.getElementById(vid).className = 'conf-val ' + (pass ? 'up' : 'down');
-  const el = document.getElementById(sid);
-  el.className = 'badge ' + (pass ? 'b-pass' : 'b-fail');
-  el.textContent = pass ? '✓' : '✗';
-}
+function fireSignal(isLong, entry, atr, score) {
+  const dp=entry>100?2:entry>1?3:4;
+  const risk=atr*1.5;
+  const sl=isLong?entry-risk:entry+risk;
+  const tp1=isLong?entry+risk:entry-risk;
+  const tp2=isLong?entry+risk*2:entry-risk*2;
+  const tp3=isLong?entry+risk*3:entry-risk*3;
+  const riskPct=(risk/entry*100).toFixed(2);
+  const pairShort=symbol.replace('USDT','');
+  const time=new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'});
 
-function fireSignal(isLong, entry, atr, score, ema9, ema21, rsi, adx, volOk) {
-  const dp = entry > 100 ? 2 : entry > 1 ? 3 : 4;
-  const fmt = v => '$' + v.toLocaleString('en', {minimumFractionDigits:dp,maximumFractionDigits:dp});
-  const risk = atr * 1.5;
-  const sl  = isLong ? entry - risk : entry + risk;
-  const tp1 = isLong ? entry + risk*1 : entry - risk*1;
-  const tp2 = isLong ? entry + risk*2 : entry - risk*2;
-  const tp3 = isLong ? entry + risk*3 : entry - risk*3;
-  const riskPct = (risk/entry*100).toFixed(2);
+  currentSignal={isLong,entry,sl,tp1,tp2,tp3,risk,dp,score,riskPct,pair:pairShort,time,tf,candleIndex:getAllCandles().length-1};
 
-  const card = document.getElementById('sigCard');
-  card.className = 'sig-card ' + (isLong ? 'sig-long' : 'sig-short');
-  document.getElementById('sigIcon').textContent = isLong ? '▲' : '▼';
-  document.getElementById('sigName').textContent = isLong ? 'LONG' : 'SHORT';
-  document.getElementById('sigPair').textContent = symbol.replace('USDT','/USDT');
-  document.getElementById('sigBadge').textContent = score + '/5 Conf';
+  // Add to chart signals (persistent)
+  chartSignals.push({...currentSignal, chartTime: Date.now()});
+  if (chartSignals.length > 50) chartSignals.shift();
 
-  document.getElementById('lvEntry').textContent = fmt(entry);
-  document.getElementById('lvSL').textContent = fmt(sl);
-  document.getElementById('lvSLsub').textContent = `−${riskPct}% / ATR×1.5`;
-  document.getElementById('lvTP1').textContent = fmt(tp1);
-  document.getElementById('lvTP2').textContent = fmt(tp2);
-  document.getElementById('lvTP3').textContent = fmt(tp3);
-  document.getElementById('rr1').textContent = '1:1.0R';
-  document.getElementById('rr2').textContent = '1:2.0R';
-  document.getElementById('rr3').textContent = '1:3.0R';
+  updateSignalCard(currentSignal);
 
-  // Add to history
-  const isWin = Math.random() > 0.33;
-  const pnl = isWin ? +(Math.random()*2+0.5).toFixed(2) : -(Math.random()*1+0.2).toFixed(2);
-  signalHistory.unshift({
-    dir: isLong ? 'LONG' : 'SHORT',
-    pair: symbol.replace('USDT',''),
-    win: isWin, pnl,
-    time: new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'})
-  });
-  if (signalHistory.length > 8) signalHistory.pop();
+  // History
+  signalHistory.unshift({...currentSignal, status:'OPEN', result:null});
+  if (signalHistory.length > 30) signalHistory.pop();
   renderHistory();
 }
 
-function renderHistory() {
-  const wins = signalHistory.filter(s=>s.win).length;
-  const wr = signalHistory.length ? Math.round(wins/signalHistory.length*100) : 0;
-  document.getElementById('sWR').textContent = wr + '%';
-  document.getElementById('sSig').textContent = signalHistory.length;
-  const avgRR = signalHistory.length ? (signalHistory.reduce((a,s)=>a+Math.abs(s.pnl),0)/signalHistory.length).toFixed(1) : '--';
-  document.getElementById('sRR').textContent = avgRR;
-  document.getElementById('histList').innerHTML = signalHistory.map(s=>`
-    <div class="hist-item">
-      <div class="h-dir ${s.dir==='LONG'?'h-long':'h-short'}">${s.dir}</div>
-      <div class="h-pair">${s.pair}/USDT</div>
-      <div class="h-res ${s.win?'h-win':'h-loss'}">${s.win?'+':''}${s.pnl}R</div>
-      <div class="h-time">${s.time}</div>
-    </div>`).join('');
+function updateSignalCard(sig) {
+  const fmt=v=>'$'+v.toLocaleString('en',{minimumFractionDigits:sig.dp,maximumFractionDigits:sig.dp});
+  const card=document.getElementById('sigCard');
+  card.className='sig-card '+(sig.isLong?'sig-long':'sig-short');
+  document.getElementById('sigIcon').textContent=sig.isLong?'▲':'▼';
+  document.getElementById('sigNm').textContent=sig.isLong?'LONG':'SHORT';
+  document.getElementById('sigPairLbl').textContent=sig.pair+'/USDT · '+sig.tf;
+  document.getElementById('sigConf').textContent=sig.score+'/5 Conf';
+  document.getElementById('lvE').textContent=fmt(sig.entry);
+  document.getElementById('lvSL').textContent=fmt(sig.sl);
+  document.getElementById('lvSLs').textContent=`−${sig.riskPct}% / ATR×1.5`;
+  document.getElementById('lvT1').textContent=fmt(sig.tp1);
+  document.getElementById('lvT2').textContent=fmt(sig.tp2);
+  document.getElementById('lvT3').textContent=fmt(sig.tp3);
 }
 
-// =====================
-// PRICE BAR UPDATE
-// =====================
+function setBadge(vid, sid, pass, val) {
+  document.getElementById(vid).textContent=val;
+  document.getElementById(vid).className='conf-val '+(pass?'up':'down');
+  const el=document.getElementById(sid);
+  el.className='badge '+(pass?'b-pass':'b-fail');
+  el.textContent=pass?'✓':'✗';
+}
+
+// =====================================================================
+// PRICE BAR
+// =====================================================================
 function updatePriceBar(price) {
-  const dp = price > 100 ? 2 : price > 1 ? 3 : 4;
-  const fmt = v => v.toLocaleString('en',{minimumFractionDigits:dp,maximumFractionDigits:dp});
-  document.getElementById('priceBig').textContent = '$' + fmt(price);
-  // change from first candle
-  if (candles.length > 0) {
-    const open = candles[0].o;
-    const chg = ((price - open)/open*100);
-    const el = document.getElementById('priceChg');
-    el.textContent = (chg>=0?'+':'') + chg.toFixed(2)+'%';
-    el.className = 'price-chg ' + (chg>=0?'up-bg':'down-bg');
+  const dp=price>100?2:price>1?3:4;
+  const fmt=v=>v.toLocaleString('en',{minimumFractionDigits:dp,maximumFractionDigits:dp});
+  document.getElementById('priceBig').textContent='$'+fmt(price);
+  if (candles.length>0) {
+    const chg=(price-candles[0].o)/candles[0].o*100;
+    const el=document.getElementById('priceChg');
+    el.textContent=(chg>=0?'+':'')+chg.toFixed(2)+'%';
+    el.className='price-chg '+(chg>=0?'up-bg':'down-bg');
   }
 }
 
-// =====================
-// CHART DRAW
-// =====================
-function getAllCandles() {
-  return liveCandle ? [...candles, liveCandle] : [...candles];
+// =====================================================================
+// CHART — Pan + Zoom + Persistent Signals
+// =====================================================================
+function getAllCandles() { return liveCandle ? [...candles, liveCandle] : [...candles]; }
+
+function setupChartEvents() {
+  const wrap = document.getElementById('chartWrap');
+  const canvas = document.getElementById('chart');
+
+  // Mouse wheel zoom
+  wrap.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -1 : 1;
+    viewScale = Math.max(4, Math.min(30, viewScale + delta));
+    drawChart();
+  }, {passive:false});
+
+  // Mouse drag pan
+  wrap.addEventListener('mousedown', e => {
+    isPanning = true;
+    panStartX = e.clientX;
+    panStartOffset = viewOffset;
+    wrap.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!isPanning) return;
+    const dx = e.clientX - panStartX;
+    const all = getAllCandles();
+    const candlePx = viewScale + 2;
+    viewOffset = Math.max(0, Math.min(all.length - 10, panStartOffset - Math.round(dx / candlePx)));
+    drawChart();
+  });
+  window.addEventListener('mouseup', () => {
+    isPanning = false;
+    document.getElementById('chartWrap').style.cursor = 'crosshair';
+  });
+
+  // Touch support
+  let touchStartX = 0, touchStartOffset = 0;
+  wrap.addEventListener('touchstart', e => { touchStartX=e.touches[0].clientX; touchStartOffset=viewOffset; });
+  wrap.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const dx=e.touches[0].clientX-touchStartX;
+    const all=getAllCandles();
+    const candlePx=viewScale+2;
+    viewOffset=Math.max(0,Math.min(all.length-10,touchStartOffset-Math.round(dx/candlePx)));
+    drawChart();
+  },{passive:false});
 }
 
 function drawChart() {
   const canvas = document.getElementById('chart');
-  const wrap = canvas.parentElement;
-  if (canvas.width !== wrap.clientWidth || canvas.height !== wrap.clientHeight) {
-    canvas.width = wrap.clientWidth;
-    canvas.height = wrap.clientHeight;
-  }
+  const wrap = document.getElementById('chartWrap');
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d');
-  ctx.clearRect(0,0,W,H);
 
   const all = getAllCandles();
   if (all.length < 2) {
     ctx.fillStyle='#080b10'; ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='rgba(124,143,166,.4)';
-    ctx.font='14px Space Grotesk, sans-serif';
-    ctx.textAlign='center';
-    ctx.fillText('Waiting for live data from Binance WebSocket...', W/2, H/2-10);
-    ctx.font='12px Space Grotesk, sans-serif';
-    ctx.fillStyle='rgba(124,143,166,.25)';
-    ctx.fillText('Candles will appear once connected', W/2, H/2+14);
+    ctx.fillStyle='rgba(124,143,166,.4)'; ctx.font='13px Space Grotesk,sans-serif'; ctx.textAlign='center';
+    ctx.fillText('Waiting for live data...', W/2, H/2);
     return;
   }
 
-  // Show last N candles that fit
-  const cW = 8, gap = 2, pad = 80;
-  const maxC = Math.floor((W - pad) / (cW + gap));
-  const view = all.slice(-maxC);
-  const n = view.length;
+  // Candle sizing
+  const cW = viewScale;
+  const gap = Math.max(1, Math.round(cW * 0.2));
+  const candlePx = cW + gap;
+  const padR = 75, padL = 10;
+  const maxVisible = Math.floor((W - padR - padL) / candlePx);
 
-  const closes = view.map(c=>c.c);
-  const highs = view.map(c=>c.h);
-  const lows = view.map(c=>c.l);
-  const allH = view.map(c=>c.h), allL = view.map(c=>c.l);
-  const minP = Math.min(...allL) * 0.9995;
-  const maxP = Math.max(...allH) * 1.0005;
-  const chartH = H * 0.82;
-  const chartTop = H * 0.04;
-  const toY = p => chartTop + (1-(p-minP)/(maxP-minP)) * chartH;
+  // View window
+  const endIdx = Math.max(all.length, all.length - viewOffset);
+  const startIdx = Math.max(0, endIdx - maxVisible - viewOffset);
+  const viewEnd = Math.max(all.length - viewOffset, maxVisible);
+  const viewStart = Math.max(0, viewEnd - maxVisible);
+  const view = all.slice(viewStart, viewEnd);
+  if (!view.length) return;
 
-  // BG
-  ctx.fillStyle = '#080b10'; ctx.fillRect(0,0,W,H);
-
-  // Grid
-  ctx.strokeStyle='rgba(30,45,61,0.5)'; ctx.lineWidth=1;
-  for(let i=0;i<5;i++){
-    const y = chartTop + i*chartH/4;
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
-    const pVal = maxP - i*(maxP-minP)/4;
-    ctx.fillStyle='rgba(61,81,102,0.7)'; ctx.font='10px JetBrains Mono,monospace';
-    ctx.textAlign='right';
-    ctx.fillText(pVal.toLocaleString('en',{maximumFractionDigits:pVal>100?2:4}), W-4, y-3);
-  }
-
-  // EMAs
-  const allCloses = all.map(c=>c.c);
-  const ema9full = calcEMA(allCloses, 9);
-  const ema21full = calcEMA(allCloses, 21);
-  const ema9view = ema9full.slice(-maxC);
-  const ema21view = ema21full.slice(-maxC);
-
-  const drawEMA = (vals, color) => {
-    ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=1.5;
-    vals.forEach((v,i) => {
-      const x = pad/2 + i*(cW+gap) + cW/2;
-      i===0 ? ctx.moveTo(x,toY(v)) : ctx.lineTo(x,toY(v));
-    });
-    ctx.stroke();
-  };
-  drawEMA(ema21view,'rgba(240,180,41,.7)');
-  drawEMA(ema9view,'rgba(59,158,255,.8)');
-
-  // Volume bars
-  const maxVol = Math.max(...view.map(c=>c.v));
+  // Price range
+  const minP = Math.min(...view.map(c=>c.l)) * 0.9993;
+  const maxP = Math.max(...view.map(c=>c.h)) * 1.0007;
+  const chartH = H * 0.78;
+  const chartTop = 6;
   const volH = H * 0.1;
   const volTop = H - volH - 2;
-  view.forEach((c,i) => {
-    const x = pad/2 + i*(cW+gap);
-    const bh = (c.v/maxVol)*volH;
-    ctx.fillStyle = c.c >= c.o ? 'rgba(0,208,132,.3)' : 'rgba(255,77,109,.3)';
-    ctx.fillRect(x, volTop+(volH-bh), cW, bh);
+  const toY = p => chartTop + (1-(p-minP)/(maxP-minP)) * chartH;
+  const toX = i => padL + i * candlePx + cW/2;
+
+  // BG
+  ctx.fillStyle='#080b10'; ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(30,45,61,0.45)'; ctx.lineWidth=1;
+  for (let i=0;i<6;i++) {
+    const y=chartTop+i*chartH/5;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    const p=maxP-i*(maxP-minP)/5;
+    ctx.fillStyle='rgba(61,81,102,.7)'; ctx.font='9px JetBrains Mono,monospace'; ctx.textAlign='right';
+    ctx.fillText(p.toLocaleString('en',{maximumFractionDigits:p>100?2:4}), W-2, y-3);
+  }
+
+  // EMA lines (full dataset for accuracy)
+  const allC=all.map(c=>c.c);
+  const ema9f=calcEMA(allC,9), ema21f=calcEMA(allC,21);
+  const e9v=ema9f.slice(viewStart,viewEnd), e21v=ema21f.slice(viewStart,viewEnd);
+  const drawEMA=(vals,color)=>{
+    ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=1.5;
+    vals.forEach((v,i)=>{ const x=padL+i*candlePx+cW/2; i===0?ctx.moveTo(x,toY(v)):ctx.lineTo(x,toY(v)); });
+    ctx.stroke();
+  };
+  drawEMA(e21v,'rgba(240,180,41,.75)');
+  drawEMA(e9v,'rgba(59,158,255,.85)');
+
+  // Volume
+  const maxVol=Math.max(...view.map(c=>c.v));
+  view.forEach((c,i)=>{
+    const x=padL+i*candlePx;
+    const bh=(c.v/maxVol)*volH;
+    ctx.fillStyle=c.c>=c.o?'rgba(0,208,132,.25)':'rgba(255,77,109,.25)';
+    ctx.fillRect(x,volTop+(volH-bh),cW,bh);
   });
 
   // Candles
-  view.forEach((c,i) => {
-    const x = pad/2 + i*(cW+gap);
-    const bull = c.c >= c.o;
-    const color = bull ? '#00d084' : '#ff4d6d';
-    const bodyTop = toY(Math.max(c.o,c.c));
-    const bodyBot = toY(Math.min(c.o,c.c));
-    const bodyH = Math.max(bodyBot-bodyTop, 1);
+  view.forEach((c,i)=>{
+    const x=padL+i*candlePx;
+    const bull=c.c>=c.o;
+    const color=bull?'#00d084':'#ff4d6d';
+    const bTop=toY(Math.max(c.o,c.c)), bBot=toY(Math.min(c.o,c.c));
+    const bH=Math.max(bBot-bTop,1);
     ctx.strokeStyle=color; ctx.lineWidth=1;
-    ctx.beginPath();
-    ctx.moveTo(x+cW/2, toY(c.h));
-    ctx.lineTo(x+cW/2, toY(c.l));
-    ctx.stroke();
-    ctx.fillStyle = bull ? '#00d084' : (c.closed ? '#ff4d6d' : 'rgba(255,77,109,.7)');
-    ctx.fillRect(x+0.5, bodyTop, cW-1, bodyH);
+    ctx.beginPath(); ctx.moveTo(x+cW/2,toY(c.h)); ctx.lineTo(x+cW/2,toY(c.l)); ctx.stroke();
+    ctx.fillStyle=bull?'#00d084':(c.closed?'#ff4d6d':'rgba(255,77,109,.6)');
+    ctx.fillRect(x+.5,bTop,cW-1,bH);
   });
 
-  // Signal levels
-  if (candles.length >= 20) {
-    const allC = all.map(c=>c.c);
-    const allH2 = all.map(c=>c.h);
-    const allL2 = all.map(c=>c.l);
-    const atrArr = calcATR(allH2, allL2, allC, 14);
-    const curAtr = atrArr[atrArr.length-1] || allC[allC.length-1]*0.005;
-    const entry = all[all.length-1].c;
-    const ema9arr = calcEMA(allC,9);
-    const ema21arr = calcEMA(allC,21);
-    const isLong = ema9arr[ema9arr.length-1] >= ema21arr[ema21arr.length-1];
-    const risk = curAtr * 1.5;
-    const sl  = isLong ? entry-risk : entry+risk;
-    const tp1 = isLong ? entry+risk : entry-risk;
-    const tp2 = isLong ? entry+risk*2 : entry-risk*2;
-    const tp3 = isLong ? entry+risk*3 : entry-risk*3;
+  // ===== PERSISTENT SIGNAL ARROWS ON CHART =====
+  chartSignals.forEach(sig => {
+    // Find which candle index this signal was on
+    const sigCandleTime = all.findIndex((c,i) => i >= sig.candleIndex - 1 && i <= sig.candleIndex + 1);
+    const relIdx = sig.candleIndex - viewStart;
+    if (relIdx < 0 || relIdx >= view.length) return;
+    const x = toX(relIdx);
+    const price = sig.entry;
+    if (price < minP || price > maxP) return;
+    const y = toY(price);
+    // Arrow
+    ctx.fillStyle = sig.isLong ? '#00d084' : '#ff4d6d';
+    ctx.beginPath();
+    if (sig.isLong) {
+      ctx.moveTo(x, y+2); ctx.lineTo(x-6, y+14); ctx.lineTo(x+6, y+14); ctx.closePath();
+    } else {
+      ctx.moveTo(x, y-2); ctx.lineTo(x-6, y-14); ctx.lineTo(x+6, y-14); ctx.closePath();
+    }
+    ctx.fill();
+    // Label
+    ctx.fillStyle=sig.isLong?'#00d084':'#ff4d6d';
+    ctx.font='bold 8px Space Grotesk,sans-serif'; ctx.textAlign='center';
+    ctx.fillText(sig.isLong?'L':'S', x, sig.isLong?y+26:y-18);
+  });
 
-    const levels=[
-      {p:sl,   color:'#ff4d6d',dash:[4,3],lbl:'SL'},
-      {p:tp1,  color:'rgba(0,208,132,.5)',dash:[3,3],lbl:'TP1'},
-      {p:tp2,  color:'rgba(0,208,132,.7)',dash:[3,3],lbl:'TP2'},
-      {p:tp3,  color:'#00d084',dash:[3,3],lbl:'TP3'},
-      {p:entry,color:'#3b9eff',dash:[],lbl:'ENTRY'},
+  // ===== CURRENT SIGNAL LINES (horizontal) =====
+  if (currentSignal && candles.length >= 20) {
+    const sig = currentSignal;
+    const levels = [
+      {p:sig.sl,   color:'#ff4d6d', dash:[4,3], lbl:'SL'},
+      {p:sig.tp1,  color:'rgba(0,208,132,.5)', dash:[3,3], lbl:'TP1'},
+      {p:sig.tp2,  color:'rgba(0,208,132,.75)', dash:[3,3], lbl:'TP2'},
+      {p:sig.tp3,  color:'#00d084', dash:[3,3], lbl:'TP3'},
+      {p:sig.entry,color:'#3b9eff', dash:[], lbl:'ENTRY'},
     ];
     levels.forEach(lv => {
-      if (lv.p < minP*0.999 || lv.p > maxP*1.001) return;
-      const y = toY(lv.p);
-      ctx.setLineDash(lv.dash);
-      ctx.strokeStyle=lv.color; ctx.lineWidth=lv.dash.length?1:1.5;
-      ctx.beginPath(); ctx.moveTo(pad/2,y); ctx.lineTo(W-pad,y); ctx.stroke();
+      if (lv.p < minP*.999 || lv.p > maxP*1.001) return;
+      const y=toY(lv.p);
+      ctx.setLineDash(lv.dash); ctx.strokeStyle=lv.color; ctx.lineWidth=lv.dash.length?1:1.5;
+      ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
       ctx.setLineDash([]);
-      const lblW = lv.lbl==='ENTRY'?44:32;
+      const lblW=lv.lbl==='ENTRY'?40:28;
       ctx.fillStyle=lv.color;
-      ctx.fillRect(2, y-9, lblW, 18);
-      ctx.fillStyle='#000'; ctx.font='bold 9px JetBrains Mono,monospace';
-      ctx.textAlign='left';
-      ctx.fillText(lv.lbl, 5, y+4);
-      // price on right
-      const dp = entry>100?2:entry>1?3:4;
-      const priceStr = lv.p.toLocaleString('en',{minimumFractionDigits:dp,maximumFractionDigits:dp});
-      ctx.fillStyle=lv.color;
-      ctx.font='10px JetBrains Mono,monospace';
-      ctx.textAlign='right';
-      ctx.fillText(priceStr, W-2, y-2);
+      ctx.fillRect(2,y-8,lblW,16);
+      ctx.fillStyle='#000'; ctx.font='bold 8px JetBrains Mono,monospace'; ctx.textAlign='left';
+      ctx.fillText(lv.lbl,5,y+4);
+      const prStr=lv.p.toLocaleString('en',{minimumFractionDigits:sig.dp,maximumFractionDigits:sig.dp});
+      ctx.fillStyle=lv.color; ctx.font='9px JetBrains Mono,monospace'; ctx.textAlign='right';
+      ctx.fillText(prStr,W-2,y-2);
     });
   }
 
   // Current price line
-  const cur = all[all.length-1].c;
-  const curY = toY(cur);
-  ctx.setLineDash([2,2]);
-  ctx.strokeStyle='rgba(59,158,255,.4)'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(pad/2,curY); ctx.lineTo(W,curY); ctx.stroke();
-  ctx.setLineDash([]);
-  const dp = cur>100?2:cur>1?3:4;
-  const prStr = cur.toLocaleString('en',{minimumFractionDigits:dp,maximumFractionDigits:dp});
-  ctx.fillStyle='#3b9eff';
-  ctx.fillRect(W-75, curY-10, 75, 20);
-  ctx.fillStyle='#000'; ctx.font='bold 10px JetBrains Mono,monospace';
-  ctx.textAlign='right';
-  ctx.fillText('$'+prStr, W-4, curY+4);
+  const cur=all[all.length-1].c;
+  const curY=toY(cur);
+  if (curY>chartTop && curY<chartTop+chartH) {
+    ctx.setLineDash([2,2]); ctx.strokeStyle='rgba(59,158,255,.35)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(padL,curY); ctx.lineTo(W,curY); ctx.stroke();
+    ctx.setLineDash([]);
+    const dp=cur>100?2:cur>1?3:4;
+    ctx.fillStyle='#3b9eff'; ctx.fillRect(W-72,curY-10,72,20);
+    ctx.fillStyle='#000'; ctx.font='bold 9px JetBrains Mono,monospace'; ctx.textAlign='right';
+    ctx.fillText('$'+cur.toLocaleString('en',{minimumFractionDigits:dp,maximumFractionDigits:dp}),W-3,curY+4);
+  }
+
+  // Zoom hint (first load)
+  if (all.length > 5 && viewScale===10 && viewOffset===0) {
+    ctx.fillStyle='rgba(61,81,102,.5)'; ctx.font='10px Space Grotesk,sans-serif'; ctx.textAlign='left';
+    ctx.fillText('🖱 Scroll to zoom · Drag to pan', padL+4, chartTop+chartH+2);
+  }
 }
 
-// =====================
-// INIT / SWITCH
-// =====================
+// =====================================================================
+// HISTORY
+// =====================================================================
+function renderHistory() {
+  const wins=signalHistory.filter(s=>s.status!=='OPEN'&&s.result>0).length;
+  const closed=signalHistory.filter(s=>s.status!=='OPEN').length;
+  const wr=closed?Math.round(wins/closed*100):0;
+  document.getElementById('sWR').textContent=wr+'%';
+  document.getElementById('sSig').textContent=signalHistory.length;
+  const avgRR=signalHistory.length?(signalHistory.reduce((a,s)=>a+Math.abs(s.risk||1),0)/signalHistory.length).toFixed(1):'--';
+  document.getElementById('sRR').textContent=avgRR;
+
+  const el=document.getElementById('histList');
+  if (!signalHistory.length) { el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:11px;">No signals yet</div>'; return; }
+  el.innerHTML=signalHistory.map((s,i)=>`
+    <div class="hist-item">
+      <div class="h-dir ${s.isLong?'h-long':'h-short'}">${s.isLong?'LONG':'SHORT'}</div>
+      <div class="h-pair">${s.pair}/USDT</div>
+      <div style="font-size:9px;color:var(--text3);">${s.tf} · ${s.time}</div>
+      <div class="h-status ${s.status==='OPEN'?'h-open':s.result>0?'h-tp1':'h-sl'}">${s.status}</div>
+    </div>`).join('');
+}
+
+// =====================================================================
+// NEWS — Economic Calendar (hardcoded 2026 key events + live fetch)
+// =====================================================================
+let allNews = [];
+let newsFilter = 'all';
+
+const HARDCODED_EVENTS = [
+  // March 2026
+  {date:'2026-03-25',time:'18:30',title:'US Consumer Confidence',impact:'medium',currency:'USD',desc:'Conference Board Consumer Confidence Index'},
+  {date:'2026-03-26',time:'18:00',title:'Fed Powell Speech',impact:'high',currency:'USD',desc:'Federal Reserve Chair Jerome Powell speaks at economic forum'},
+  {date:'2026-03-27',time:'18:30',title:'US GDP Q4 Final',impact:'high',currency:'USD',desc:'Gross Domestic Product final reading Q4 2025'},
+  {date:'2026-03-28',time:'18:30',title:'PCE Price Index (Inflation)',impact:'high',currency:'USD',desc:'Core PCE — Fed preferred inflation gauge'},
+  {date:'2026-03-28',time:'18:30',title:'Personal Income & Spending',impact:'medium',currency:'USD',desc:'Monthly personal income and consumer spending data'},
+  // April 2026
+  {date:'2026-04-01',time:'19:45',title:'ISM Manufacturing PMI',impact:'high',currency:'USD',desc:'Institute for Supply Management Manufacturing Index'},
+  {date:'2026-04-04',time:'18:30',title:'US Non-Farm Payrolls',impact:'high',currency:'USD',desc:'Monthly jobs report — most important US economic data'},
+  {date:'2026-04-04',time:'18:30',title:'Unemployment Rate',impact:'high',currency:'USD',desc:'US monthly unemployment rate'},
+  {date:'2026-04-07',time:'19:45',title:'ISM Services PMI',impact:'medium',currency:'USD',desc:'Services sector activity index'},
+  {date:'2026-04-10',time:'18:30',title:'US CPI Inflation',impact:'high',currency:'USD',desc:'Consumer Price Index — key inflation data. High impact on crypto'},
+  {date:'2026-04-11',time:'18:30',title:'US PPI Inflation',impact:'medium',currency:'USD',desc:'Producer Price Index — wholesale inflation'},
+  {date:'2026-04-15',time:'18:30',title:'US Retail Sales',impact:'high',currency:'USD',desc:'Monthly retail sales — consumer spending strength'},
+  {date:'2026-04-16',time:'14:30',title:'ECB Meeting Minutes',impact:'medium',currency:'EUR',desc:'European Central Bank policy discussion notes'},
+  {date:'2026-04-21',time:'All Day',title:'Trump Trade Policy Speech',impact:'high',currency:'USD',desc:'Expected speech on trade tariffs — high crypto volatility risk'},
+  {date:'2026-04-29',time:'18:30',title:'US GDP Q1 Advance',impact:'high',currency:'USD',desc:'First reading of Q1 2026 GDP growth'},
+  {date:'2026-04-30',time:'18:30',title:'PCE Price Index',impact:'high',currency:'USD',desc:'Core PCE inflation — Fed meeting prep data'},
+  // FOMC
+  {date:'2026-05-06',time:'23:30',title:'FOMC Interest Rate Decision',impact:'high',currency:'USD',desc:'Federal Reserve rate decision — biggest crypto mover'},
+  {date:'2026-05-07',time:'00:30',title:'Powell Press Conference',impact:'high',currency:'USD',desc:'Fed Chair press conference after rate decision'},
+];
+
+async function fetchLiveNews() {
+  // Try Finnhub economic calendar
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const nextWeek = new Date(Date.now()+7*86400000).toISOString().split('T')[0];
+    const url = `https://finnhub.io/api/v1/calendar/economic?from=${today}&to=${nextWeek}&token=demo`;
+    const r = await fetch(url, {signal: AbortSignal.timeout(5000)});
+    if (r.ok) {
+      const data = await r.json();
+      if (data.economicCalendar && data.economicCalendar.length) {
+        const live = data.economicCalendar.slice(0,10).map(e => ({
+          date: e.time?.split('T')[0] || today,
+          time: e.time ? new Date(e.time).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}) : '--:--',
+          title: e.event || 'Economic Event',
+          impact: e.impact === '3' ? 'high' : e.impact === '2' ? 'medium' : 'low',
+          currency: e.country || 'USD',
+          desc: e.unit || '',
+          live: true
+        }));
+        return live;
+      }
+    }
+  } catch(e) { console.warn('Finnhub failed', e.message); }
+  return [];
+}
+
+async function buildNews() {
+  const liveNews = await fetchLiveNews();
+  const today = new Date().toISOString().split('T')[0];
+
+  // Merge hardcoded + live, convert times to IST
+  allNews = [...HARDCODED_EVENTS, ...liveNews].map(e => ({
+    ...e,
+    dateObj: new Date(e.date),
+    timeIST: e.time // already IST or converted
+  })).sort((a,b) => new Date(a.date+' '+(a.time==='All Day'?'00:00':a.time)) - new Date(b.date+' '+(b.time==='All Day'?'00:00':b.time)));
+
+  // Update date header
+  document.getElementById('newsDate').textContent = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  renderNews();
+}
+
+function filterNews(f, el) {
+  newsFilter = f;
+  document.querySelectorAll('.nf').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  renderNews();
+}
+
+function renderNews() {
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  let filtered = allNews.filter(e => new Date(e.date) >= new Date(todayStr));
+  if (newsFilter === 'high') filtered = filtered.filter(e => e.impact === 'high');
+  if (newsFilter === 'medium') filtered = filtered.filter(e => e.impact !== 'low');
+
+  const el = document.getElementById('newsList');
+  if (!filtered.length) { el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:11px;">No upcoming events</div>'; return; }
+
+  // Group by date
+  const grouped = {};
+  filtered.forEach(e => { if (!grouped[e.date]) grouped[e.date]=[]; grouped[e.date].push(e); });
+
+  el.innerHTML = Object.entries(grouped).map(([date, events]) => {
+    const d = new Date(date);
+    const isToday = date === todayStr;
+    const isTomorrow = date === new Date(Date.now()+86400000).toISOString().split('T')[0];
+    const dayLabel = isToday ? '📅 TODAY' : isTomorrow ? '📅 TOMORROW' : '📅 '+d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
+    return `
+      <div style="padding:4px 12px 2px;font-size:9px;font-weight:700;letter-spacing:1px;color:${isToday?'var(--yellow)':'var(--text3)'};">${dayLabel}</div>
+      ${events.map(e => `
+        <div class="news-item" style="${isToday?'border-color:rgba(240,180,41,.2);':''}">
+          <div class="news-time">
+            <div class="news-impact ${e.impact}"></div>
+            ${e.timeIST} IST · ${e.currency}
+            ${e.live?'<span style="color:var(--green);font-size:8px;">LIVE</span>':''}
+          </div>
+          <div class="news-title">${e.title}</div>
+          ${e.desc?`<div class="news-sub">${e.desc}</div>`:''}
+          <span class="news-tag ${e.impact==='high'?'tag-high':e.impact==='medium'?'tag-med':'tag-low'}">${e.impact.toUpperCase()}</span>
+        </div>`).join('')}`;
+  }).join('');
+}
+
+// =====================================================================
+// TABS
+// =====================================================================
+function showTab(tab, el) {
+  document.querySelectorAll('.rt').forEach(r=>r.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tabSignal').style.display = tab==='signal'?'block':'none';
+  document.getElementById('tabHistory').style.display = tab==='history'?'block':'none';
+  document.getElementById('tabNews').style.display = tab==='news'?'block':'none';
+  if (tab==='news') buildNews();
+}
+
+// =====================================================================
+// PAIR / TF SWITCH
+// =====================================================================
+function selectPair(sym, el) {
+  document.querySelectorAll('.bk').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  const short = sym.replace('USDT','');
+  document.getElementById('pairLabel').textContent = short+'/USDT · Perpetual';
+  symbol=sym; chartSignals=[]; candles=[]; viewOffset=0; currentSignal=null;
+  init();
+}
+
+function selectTF(interval, el) {
+  document.querySelectorAll('.tf').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  tf=interval; candles=[]; viewOffset=0; currentSignal=null; signalLockCounter=0;
+  init();
+}
+
+// =====================================================================
+// INIT
+// =====================================================================
 async function init() {
   setWsStatus('connecting');
-  candles = await fetchHistory(symbol, tf, 150);
+  candles = await fetchHistory(symbol, tf, 300);
   if (candles.length > 0) {
     updatePriceBar(candles[candles.length-1].c);
     runAlgo();
@@ -767,23 +1052,9 @@ async function init() {
   connectWS(symbol, tf);
 }
 
-async function switchPair(sym, el) {
-  document.querySelectorAll('.pair-tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  symbol = sym;
-  candles = [];
-  await init();
-}
-
-async function switchTF(interval, el) {
-  document.querySelectorAll('.tf-tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  tf = interval;
-  candles = [];
-  await init();
-}
-
 window.addEventListener('resize', drawChart);
+setupChartEvents();
+buildNews();
 init();
 </script>
 </body>
