@@ -474,7 +474,7 @@ function runBacktest() {
     const dir = isLong ? 'L' : 'S';
 
     // Fire signal: score>=3, not in trade, no cooldown, direction not same as last
-    if (score >= 3 && !inTrade && cooldown === 0 && dir !== lastDir) {
+    if (score >= 4 && !inTrade && cooldown === 0 && dir !== lastDir) {
       const risk = ca * 1.5;
       const entry = ce;
       const sl = isLong ? entry - risk : entry + risk;
@@ -524,7 +524,7 @@ function runBacktest() {
       sigs.push(sig);
       inTrade = false; // allow next signal (not blocking, just marking)
       lastDir = dir;
-      cooldown = 10; // minimum 10 candles between signals
+      cooldown = 25; // minimum 25 candles between signals
     }
   }
 
@@ -602,7 +602,7 @@ function runAlgo() {
   const dirChg = lastLiveDir !== null && lastLiveDir !== (isLong ? 'L' : 'S');
   const openSig = liveSigs.find(s => s.status === 'OPEN');
   // Only fire if: no open signal, cooldown done, score>=3, direction changed or no prev signal
-  if (!openSig && liveCooldown === 0 && score >= 3 && now - lastLiveSigTime > 120000 && (!dirChg || score >= 4)) {
+  if (!openSig && liveCooldown === 0 && score >= 4 && now - lastLiveSigTime > 120000) {
     lastLiveSigTime = now;
     lastLiveDir = isLong ? 'L' : 'S';
     liveCooldown = 15;
@@ -912,53 +912,52 @@ function draw() {
     const inView = ri >= 0 && ri < view.length;
     const sc = inView ? view[ri] : null;
 
-    // Draw horizontal SL/TP lines — always visible regardless of pan position
-    const hline = (price, col, dash, thick, lbl) => {
-      if (!price || price <= 0 || price < pMin * .96 || price > pMax * 1.04) return;
-      const y = toY(price);
-      if (y < chartTop - 5 || y > chartTop + chartH + 5) return;
-      // Line starts from signal candle x (or left edge if not in view)
-      const x1 = inView ? toX(ri) : padL;
-      ctx.setLineDash(dash); ctx.strokeStyle = col; ctx.lineWidth = thick;
-      ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(W - padR, y); ctx.stroke();
-      ctx.setLineDash([]);
-      // Right label
-      if (lbl) {
-        ctx.font = 'bold 9px JetBrains Mono,monospace';
-        const tw = ctx.measureText(lbl).width + 8;
-        ctx.fillStyle = col; ctx.globalAlpha = .92;
-        ctx.fillRect(W - padR, y - 9, tw, 18);
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = '#000'; ctx.textAlign = 'left';
-        ctx.fillText(lbl, W - padR + 4, y + 5);
-      }
-    };
-
     const dp2 = sig.dp || 2;
     const fmt = v => v.toLocaleString('en', { minimumFractionDigits: dp2, maximumFractionDigits: dp2 });
 
-    // Draw lines based on status
-    if (sig.status === 'OPEN') {
-      hline(sig.sl, BEAR, [5, 3], 1.2, 'SL ' + fmt(sig.sl));
-      hline(sig.tp1, 'rgba(0,230,118,.5)', [3, 3], 1, 'TP1 ' + fmt(sig.tp1));
-      hline(sig.tp2, 'rgba(0,230,118,.7)', [3, 3], 1, 'TP2 ' + fmt(sig.tp2));
-      hline(sig.tp3, BULL, [3, 3], 1.5, 'TP3 ' + fmt(sig.tp3));
-    } else if (sig.status === 'TP1') {
-      hline(sig.slMoved || sig.entry, YLW, [5, 3], 1, 'BE ' + fmt(sig.slMoved || sig.entry));
-      hline(sig.tp1, BULL, [], 2, '✓TP1');
-      hline(sig.tp2, 'rgba(0,230,118,.65)', [3, 3], 1, 'TP2 ' + fmt(sig.tp2));
-      hline(sig.tp3, BULL, [3, 3], 1, 'TP3 ' + fmt(sig.tp3));
-    } else if (sig.status === 'TP2') {
-      hline(sig.tp1, BULL, [], 1.5, '✓TP1');
-      hline(sig.tp2, BULL, [], 2, '✓TP2 ' + fmt(sig.tp2));
-      hline(sig.tp3, 'rgba(0,230,118,.65)', [3, 3], 1, 'TP3 ' + fmt(sig.tp3));
-    } else if (sig.status === 'TP3') {
-      hline(sig.tp1, BULL, [], 1, '✓TP1');
-      hline(sig.tp2, BULL, [], 1, '✓TP2');
-      hline(sig.tp3, BULL, [], 2, '✓TP3 ' + fmt(sig.tp3));
-    } else if (sig.status === 'SL') {
-      hline(sig.sl, BEAR, [], 2, '✗SL ' + fmt(sig.sl));
-      hline(sig.tp1, 'rgba(0,230,118,.18)', [3, 3], .7, null);
+    // ONLY draw SL/TP lines for the most recent OPEN signal (curSig)
+    // Past closed signals = only arrow + badge (no lines = clean chart)
+    const isCurrentSig = curSig && sig.id === curSig.id;
+    const isOpenSig = sig.status === 'OPEN';
+
+    if (isCurrentSig || isOpenSig) {
+      const hline = (price, col, dash, thick, lbl) => {
+        if (!price || price <= 0 || price < pMin * .96 || price > pMax * 1.04) return;
+        const y = toY(price);
+        if (y < chartTop - 5 || y > chartTop + chartH + 5) return;
+        const x1 = inView ? toX(ri) : padL;
+        ctx.setLineDash(dash); ctx.strokeStyle = col; ctx.lineWidth = thick;
+        ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(W - padR, y); ctx.stroke();
+        ctx.setLineDash([]);
+        if (lbl) {
+          ctx.font = 'bold 9px JetBrains Mono,monospace';
+          const tw = ctx.measureText(lbl).width + 8;
+          ctx.fillStyle = col; ctx.globalAlpha = .92;
+          ctx.fillRect(W - padR, y - 9, tw, 18);
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = '#000'; ctx.textAlign = 'left';
+          ctx.fillText(lbl, W - padR + 4, y + 5);
+        }
+      };
+      if (sig.status === 'OPEN') {
+        hline(sig.sl, BEAR, [5, 3], 1.2, 'SL ' + fmt(sig.sl));
+        hline(sig.tp1, 'rgba(0,230,118,.5)', [3, 3], 1, 'TP1 ' + fmt(sig.tp1));
+        hline(sig.tp2, 'rgba(0,230,118,.7)', [3, 3], 1, 'TP2 ' + fmt(sig.tp2));
+        hline(sig.tp3, BULL, [3, 3], 1.5, 'TP3 ' + fmt(sig.tp3));
+      } else if (sig.status === 'TP1') {
+        hline(sig.slMoved || sig.entry, YLW, [5, 3], 1, 'BE');
+        hline(sig.tp1, BULL, [], 2, '✓TP1');
+        hline(sig.tp2, 'rgba(0,230,118,.65)', [3, 3], 1, 'TP2');
+        hline(sig.tp3, BULL, [3, 3], 1, 'TP3');
+      } else if (sig.status === 'TP2') {
+        hline(sig.tp1, BULL, [], 1.5, '✓TP1');
+        hline(sig.tp2, BULL, [], 2, '✓TP2');
+        hline(sig.tp3, 'rgba(0,230,118,.65)', [3, 3], 1, 'TP3');
+      } else if (sig.status === 'TP3') {
+        hline(sig.tp1, BULL, [], 1, '✓TP1'); hline(sig.tp2, BULL, [], 1, '✓TP2'); hline(sig.tp3, BULL, [], 2, '✓TP3');
+      } else if (sig.status === 'SL') {
+        hline(sig.sl, BEAR, [], 2, '✗SL');
+      }
     }
 
     // Arrow + BUY/SELL label — only when entry candle in view
