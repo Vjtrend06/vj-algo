@@ -158,7 +158,7 @@ nav{display:flex;align-items:center;gap:8px;padding:0 12px;height:50px;backgroun
       <div class="ids">
         <div class="id"><span class="il">EMA9</span><span class="iv" id="e9">--</span></div>
         <div class="id"><span class="il">EMA21</span><span class="iv" id="e21">--</span></div>
-        <div class="id"><span class="il">EMA50</span><span class="iv" id="e50">--</span></div>
+        <div class="id"><span class="il">EMA200</span><span class="iv" id="e50">--</span></div>
         <div class="id"><span class="il">RSI</span><span class="iv" id="rsi">--</span></div>
         <div class="id"><span class="il">ADX</span><span class="iv" id="adx">--</span></div>
       </div>
@@ -187,7 +187,7 @@ nav{display:flex;align-items:center;gap:8px;padding:0 12px;height:50px;backgroun
             <div class="sbg" id="sbg">--</div>
           </div>
           <div class="lr"><div class="ll"><div class="ld" style="background:#2196f3;box-shadow:0 0 4px #2196f366;"></div><div class="ln">ENTRY</div></div><div><div class="lp" id="lE" style="color:#2196f3;">--</div><div class="ls">EMA Cross candle close</div></div></div>
-          <div class="lr"><div class="ll"><div class="ld" style="background:var(--r);"></div><div class="ln">STOP LOSS</div></div><div><div class="lp dn" id="lSL">--</div><div class="ls" id="lSLs">ATR×1.5 from entry</div></div></div>
+          <div class="lr"><div class="ll"><div class="ld" style="background:var(--r);"></div><div class="ln">STOP LOSS</div></div><div><div class="lp dn" id="lSL">--</div><div class="ls" id="lSLs">ATR×2.0 from entry</div></div></div>
           <div class="lr"><div class="ll"><div class="ld" style="background:var(--g);opacity:.5;"></div><div class="ln">TP1 · 50%</div></div><div><div class="lp up" id="lT1">--</div><div class="ls">1:2R</div></div></div>
           <div class="lr"><div class="ll"><div class="ld" style="background:var(--g);opacity:.75;"></div><div class="ln">TP2 · 30%</div></div><div><div class="lp up" id="lT2">--</div><div class="ls">1:3R</div></div></div>
           <div class="lr"><div class="ll"><div class="ld" style="background:var(--g);"></div><div class="ln">TP3 · 20%</div></div><div><div class="lp up" id="lT3">--</div><div class="ls">1:4R</div></div></div>
@@ -198,12 +198,12 @@ nav{display:flex;align-items:center;gap:8px;padding:0 12px;height:50px;backgroun
           <div class="sb"><div class="sl2">Avg R</div><div class="sv" id="sRR">--</div></div>
         </div>
         <div class="cc">
-          <div class="ct">Confluence Check</div>
-          <div class="cr"><span class="cn">EMA9 × EMA21 Cross</span><div class="crr"><span class="cv" id="cv1">--</span><div class="cb" id="cs1">?</div></div></div>
-          <div class="cr"><span class="cn">EMA50 Trend Filter</span><div class="crr"><span class="cv" id="cv2">--</span><div class="cb" id="cs2">?</div></div></div>
-          <div class="cr"><span class="cn">RSI Confirmation</span><div class="crr"><span class="cv" id="cv3">--</span><div class="cb" id="cs3">?</div></div></div>
-          <div class="cr"><span class="cn">ADX Trend Strength</span><div class="crr"><span class="cv" id="cv4">--</span><div class="cb" id="cs4">?</div></div></div>
-          <div class="cr"><span class="cn">Price vs EMA21</span><div class="crr"><span class="cv" id="cv5">--</span><div class="cb" id="cs5">?</div></div></div>
+          <div class="ct">Confluence Check · Freqtrade Logic</div>
+          <div class="cr"><span class="cn">EMA9 × EMA21 Crossover</span><div class="crr"><span class="cv" id="cv1">--</span><div class="cb" id="cs1">?</div></div></div>
+          <div class="cr"><span class="cn">EMA200 Trend Filter</span><div class="crr"><span class="cv" id="cv2">--</span><div class="cb" id="cs2">?</div></div></div>
+          <div class="cr"><span class="cn">RSI Zone (50-70 / 30-50)</span><div class="crr"><span class="cv" id="cv3">--</span><div class="cb" id="cs3">?</div></div></div>
+          <div class="cr"><span class="cn">ADX > 25 (Trend Strength)</span><div class="crr"><span class="cv" id="cv4">--</span><div class="cb" id="cs4">?</div></div></div>
+          <div class="cr"><span class="cn">+DI / -DI Alignment</span><div class="crr"><span class="cv" id="cv5">--</span><div class="cb" id="cs5">?</div></div></div>
         </div>
       </div>
       <div id="tHis" style="display:none;padding-top:4px;">
@@ -408,26 +408,25 @@ function calcADX(H, L, C, n = 14) {
 // ═══════════════════════════════════════════
 function computeSignals(candles) {
   const n = candles.length;
-  if (n < 60) return [];
+  if (n < 210) return [];  // need 200 candles for EMA200
 
   const C = candles.map(c => c.c);
   const H = candles.map(c => c.h);
   const L = candles.map(c => c.l);
 
-  const e9  = calcEMA(C, 9);
-  const e21 = calcEMA(C, 21);
-  const e50 = calcEMA(C, 50);
-  const rsi = calcRSI(C, 14);
-  const atr = calcATR(H, L, C, 14);
-  const { adx } = calcADX(H, L, C, 14);
+  const e9   = calcEMA(C, 9);
+  const e21  = calcEMA(C, 21);
+  const e200 = calcEMA(C, 200);  // Freqtrade DoubleEMACrossover uses EMA200 as trend filter
+  const rsi  = calcRSI(C, 14);
+  const atr  = calcATR(H, L, C, 14);
+  const { adx, pdi, mdi } = calcADX(H, L, C, 14);
 
   const sigs = [];
 
-  for (let i = 52; i < n - 1; i++) {
-    // EMA crossover detection (on this candle vs previous)
-    const crossUp   = e9[i] > e21[i] && e9[i-1] <= e21[i-1];  // bullish cross
-    const crossDown = e9[i] < e21[i] && e9[i-1] >= e21[i-1];  // bearish cross
-
+  for (let i = 205; i < n - 1; i++) {
+    // ── EMA9/21 CROSSOVER on closed candle (non-repainting) ──
+    const crossUp   = e9[i] > e21[i] && e9[i-1] <= e21[i-1];
+    const crossDown = e9[i] < e21[i] && e9[i-1] >= e21[i-1];
     if (!crossUp && !crossDown) continue;
 
     const isLong = crossUp;
@@ -436,22 +435,34 @@ function computeSignals(candles) {
     const rsiVal = rsi[i];
     const adxVal = adx[i];
 
-    // ── FILTERS (all must pass for a valid signal) ──
-    // 1. EMA50 trend: price above EMA50 for long, below for short
-    const trendOK = isLong ? price > e50[i] : price < e50[i];
-    // 2. RSI: Long needs RSI 45-70 (momentum, not overbought), Short needs RSI 30-55
-    const rsiOK   = isLong ? (rsiVal >= 45 && rsiVal <= 70) : (rsiVal >= 30 && rsiVal <= 55);
-    // 3. ADX > 20 = trending market
-    const adxOK   = adxVal >= 20;
+    // ── FREQTRADE-STYLE FILTERS ──
+    // 1. EMA200 trend filter (from DoubleEMACrossoverWithTrend)
+    //    Long: price AND EMA9 must be above EMA200
+    //    Short: price AND EMA9 must be below EMA200
+    const trendOK = isLong
+      ? (price > e200[i] && e21[i] > e200[i])
+      : (price < e200[i] && e21[i] < e200[i]);
 
-    // All 3 filters must pass
-    if (!trendOK || !rsiOK || !adxOK) continue;
+    // 2. RSI filter — non-overlapping zones
+    //    Long: RSI 50-70 (confirmed upward momentum, not overbought)
+    //    Short: RSI 30-50 (confirmed downward momentum, not oversold)
+    const rsiOK = isLong
+      ? (rsiVal >= 50 && rsiVal <= 70)
+      : (rsiVal >= 30 && rsiVal <= 50);
 
-    // Score = how many filters passed (for display)
-    const score = [true, trendOK, rsiOK, adxOK, price !== e21[i]].filter(Boolean).length;
+    // 3. ADX > 25 (Freqtrade standard — stronger trend filter)
+    const adxOK = adxVal >= 25;
 
-    // SL = ATR × 1.5 from entry (enough room, not too tight)
-    const slDist = atrVal * 1.5;
+    // 4. DI alignment — +DI > -DI for long, -DI > +DI for short
+    const diOK = isLong ? pdi[i] > mdi[i] : mdi[i] > pdi[i];
+
+    // All 4 filters must pass
+    if (!trendOK || !rsiOK || !adxOK || !diOK) continue;
+
+    const score = [true, trendOK, rsiOK, adxOK, diOK].filter(Boolean).length;
+
+    // ── SL = ATR×2.0 (Freqtrade proven: stop-loss = current price - 2×ATR) ──
+    const slDist = atrVal * 2.0;
     const dp = price > 1000 ? 1 : price > 100 ? 2 : price > 1 ? 3 : 5;
 
     const sig = {
@@ -520,16 +531,14 @@ function runBacktest() {
 function pushAllChartData() {
   if (!candles.length || !cSeries) return;
   const C = candles.map(c => c.c);
-  const H = candles.map(c => c.h);
-  const L = candles.map(c => c.l);
-  const e9v  = calcEMA(C, 9);
-  const e21v = calcEMA(C, 21);
-  const e50v = calcEMA(C, 50);
+  const e9v   = calcEMA(C, 9);
+  const e21v  = calcEMA(C, 21);
+  const e200v = calcEMA(C, 200);
 
   cSeries.setData(candles.map(c => ({ time: SEC(c.t), open: c.o, high: c.h, low: c.l, close: c.c })));
   e9S.setData(candles.map((c, i) => ({ time: SEC(c.t), value: e9v[i] })));
   e21S.setData(candles.map((c, i) => ({ time: SEC(c.t), value: e21v[i] })));
-  e50S.setData(candles.map((c, i) => ({ time: SEC(c.t), value: e50v[i] })));
+  e50S.setData(candles.map((c, i) => ({ time: SEC(c.t), value: e200v[i] })));
   volS.setData(candles.map(c => ({
     time: SEC(c.t), value: c.v,
     color: c.c >= c.o ? 'rgba(38,166,154,.22)' : 'rgba(239,83,80,.22)',
@@ -603,14 +612,14 @@ function onLiveCandle(k) {
   // Live EMA update
   const all = [...candles, lc];
   const C = all.map(c => c.c), H = all.map(c => c.h), L = all.map(c => c.l);
-  const e9v = calcEMA(C, 9), e21v = calcEMA(C, 21), e50v = calcEMA(C, 50);
+  const e9v = calcEMA(C, 9), e21v = calcEMA(C, 21), e200v = calcEMA(C, 200);
   const last = all.length - 1;
   e9S.update({ time: SEC(lc.t), value: e9v[last] });
   e21S.update({ time: SEC(lc.t), value: e21v[last] });
-  e50S.update({ time: SEC(lc.t), value: e50v[last] });
+  e50S.update({ time: SEC(lc.t), value: e200v[last] });
 
   updPrice(lc.c);
-  updateBottomBar(all, e9v, e21v, e50v);
+  updateBottomBar(all, e9v, e21v, e200v);
 
   // Check live signal hits
   checkLiveHits(lc);
@@ -628,19 +637,19 @@ function onLiveCandle(k) {
 // ═══════════════════════════════════════════
 function checkNewLiveSignal() {
   const n = candles.length;
-  if (n < 55) return;
+  if (n < 210) return;  // need 200+ candles for EMA200
 
   const C = candles.map(c => c.c);
   const H = candles.map(c => c.h);
   const L = candles.map(c => c.l);
-  const e9  = calcEMA(C, 9);
-  const e21 = calcEMA(C, 21);
-  const e50 = calcEMA(C, 50);
-  const rsi = calcRSI(C, 14);
-  const atr = calcATR(H, L, C, 14);
-  const { adx } = calcADX(H, L, C, 14);
+  const e9   = calcEMA(C, 9);
+  const e21  = calcEMA(C, 21);
+  const e200 = calcEMA(C, 200);
+  const rsi  = calcRSI(C, 14);
+  const atr  = calcATR(H, L, C, 14);
+  const { adx, pdi, mdi } = calcADX(H, L, C, 14);
 
-  const i = n - 1;  // last CLOSED candle
+  const i = n - 1;
 
   const crossUp   = e9[i] > e21[i] && e9[i-1] <= e21[i-1];
   const crossDown = e9[i] < e21[i] && e9[i-1] >= e21[i-1];
@@ -648,27 +657,30 @@ function checkNewLiveSignal() {
 
   const isLong = crossUp;
   const dir = isLong ? 'L' : 'S';
-  // No same-direction repeat
   if (dir === liveLastDir) return;
 
   const price  = C[i];
   const atrVal = atr[i];
   const rsiVal = rsi[i];
   const adxVal = adx[i];
-  const trendOK = isLong ? price > e50[i] : price < e50[i];
-  const rsiOK   = isLong ? (rsiVal >= 45 && rsiVal <= 70) : (rsiVal >= 30 && rsiVal <= 55);
-  const adxOK   = adxVal >= 20;
-  if (!trendOK || !rsiOK || !adxOK) return;
 
-  // Cooldown: min 2 candles after last live signal
+  // Same filters as backtest
+  const trendOK = isLong
+    ? (price > e200[i] && e21[i] > e200[i])
+    : (price < e200[i] && e21[i] < e200[i]);
+  const rsiOK = isLong ? (rsiVal >= 50 && rsiVal <= 70) : (rsiVal >= 30 && rsiVal <= 50);
+  const adxOK = adxVal >= 25;
+  const diOK  = isLong ? pdi[i] > mdi[i] : mdi[i] > pdi[i];
+
+  if (!trendOK || !rsiOK || !adxOK || !diOK) return;
   if (Date.now() < liveCooldownTs) return;
 
   liveLastDir = dir;
   liveCooldownTs = Date.now() + TF_MS[TF] * 2;
 
-  const slDist = atrVal * 1.5;
+  const slDist = atrVal * 2.0;  // Freqtrade: SL = 2×ATR
   const dp = price > 1000 ? 1 : price > 100 ? 2 : price > 1 ? 3 : 5;
-  const score = [true, trendOK, rsiOK, adxOK, true].filter(Boolean).length;
+  const score = [true, trendOK, rsiOK, adxOK, diOK].filter(Boolean).length;
 
   const sig = {
     id: `lv_${Date.now()}`, isBT: false,
@@ -712,55 +724,54 @@ function checkLiveHits(lc) {
 // ═══════════════════════════════════════════
 // BOTTOM BAR
 // ═══════════════════════════════════════════
-function updateBottomBar(all, e9v, e21v, e50v) {
+function updateBottomBar(all, e9v, e21v, e200v) {
   const n = all.length;
   if (n < 2) return;
   const C = all.map(c => c.c);
-  const rsi = calcRSI(C, 14);
   const H = all.map(c => c.h), L = all.map(c => c.l);
-  const { adx } = calcADX(H, L, C, 14);
+  const rsi = calcRSI(C, 14);
+  const { adx, pdi, mdi } = calcADX(H, L, C, 14);
 
   const i = n - 1;
-  const e9 = e9v[i], e21 = e21v[i], e50 = e50v[i], r = rsi[i], a = adx[i];
+  const e9 = e9v[i], e21 = e21v[i], e200 = e200v[i], r = rsi[i], a = adx[i];
   const dp = C[i] > 1000 ? 1 : C[i] > 100 ? 2 : C[i] > 1 ? 3 : 5;
 
-  // Update top bar indicators
-  setTxt('e9', e9.toFixed(dp), e9 > e21 ? 'up' : 'dn');
+  setTxt('e9',  e9.toFixed(dp),   e9 > e21  ? 'up' : 'dn');
   setTxt('e21', e21.toFixed(dp));
-  setTxt('e50', e50.toFixed(dp), C[i] > e50 ? 'up' : 'dn');
+  setTxt('e50', e200.toFixed(dp), C[i] > e200 ? 'up' : 'dn');
   const rsiEl = document.getElementById('rsi');
   rsiEl.textContent = r.toFixed(1);
   rsiEl.style.color = r > 65 ? 'var(--r)' : r < 35 ? 'var(--g)' : 'var(--y)';
   setTxt('adx', a.toFixed(1), a > 25 ? 'up' : '');
 
-  // Crossover state
   const crossUp   = e9v[i] > e21v[i] && e9v[i-1] <= e21v[i-1];
   const crossDown = e9v[i] < e21v[i] && e9v[i-1] >= e21v[i-1];
   const isLong = e9 > e21;
 
-  const trendOK = isLong ? C[i] > e50 : C[i] < e50;
-  const rsiOK   = isLong ? (r >= 45 && r <= 70) : (r >= 30 && r <= 55);
-  const adxOK   = a >= 20;
-  const hasSignal = (crossUp || crossDown) && trendOK && rsiOK && adxOK;
+  const trendOK = isLong
+    ? (C[i] > e200 && e21 > e200)
+    : (C[i] < e200 && e21 < e200);
+  const rsiOK = isLong ? (r >= 50 && r <= 70) : (r >= 30 && r <= 50);
+  const adxOK = a >= 25;
+  const diOK  = isLong ? pdi[i] > mdi[i] : mdi[i] > pdi[i];
+  const hasSignal = (crossUp || crossDown) && trendOK && rsiOK && adxOK && diOK;
 
-  // Confluence badges
-  setBadge('cv1','cs1', crossUp || crossDown, crossUp ? 'BullCross ✓' : crossDown ? 'BearCross ✓' : 'No Cross');
-  setBadge('cv2','cs2', trendOK, isLong ? (C[i] > e50 ? 'Price > EMA50' : 'Price < EMA50') : (C[i] < e50 ? 'Price < EMA50' : 'Price > EMA50'));
+  setBadge('cv1','cs1', crossUp||crossDown, crossUp?'Bull Cross ✓':crossDown?'Bear Cross ✓':'No Cross');
+  setBadge('cv2','cs2', trendOK, isLong ? (C[i]>e200?'Above EMA200':'Below EMA200') : (C[i]<e200?'Below EMA200':'Above EMA200'));
   setBadge('cv3','cs3', rsiOK, r.toFixed(1));
   setBadge('cv4','cs4', adxOK, a.toFixed(1));
-  setBadge('cv5','cs5', isLong ? C[i] > e21 : C[i] < e21, isLong ? 'Above EMA21' : 'Below EMA21');
+  setBadge('cv5','cs5', diOK, isLong ? `+DI ${pdi[i]?.toFixed(1)} > -DI` : `-DI ${mdi[i]?.toFixed(1)} > +DI`);
 
-  // Bottom bar
-  const trend = C[i] > e50 ? 'BULLISH' : 'BEARISH';
-  setTxt('bTr', trend, C[i] > e50 ? 'up' : 'dn');
-  setTxt('bCr', crossUp ? '⬆ CROSS UP' : crossDown ? '⬇ CROSS DN' : e9 > e21 ? 'EMA9 > EMA21' : 'EMA9 < EMA21', crossUp ? 'up' : crossDown ? 'dn' : '');
+  const trend = C[i] > e200 ? 'BULLISH' : 'BEARISH';
+  setTxt('bTr', trend, C[i] > e200 ? 'up' : 'dn');
+  setTxt('bCr', crossUp?'⬆ CROSS UP':crossDown?'⬇ CROSS DN':e9>e21?'EMA9>EMA21':'EMA9<EMA21', crossUp?'up':crossDown?'dn':'');
   const rsiEl2 = document.getElementById('bRsi');
   rsiEl2.textContent = r.toFixed(1);
   rsiEl2.style.color = r > 65 ? 'var(--r)' : r < 35 ? 'var(--g)' : 'var(--y)';
-  setTxt('bAdx', a.toFixed(1) + (adxOK ? ' ✓' : ''), adxOK ? 'up' : '');
+  setTxt('bAdx', a.toFixed(1)+(adxOK?' ✓':''), adxOK?'up':'');
   setTxt('bSg',
-    hasSignal ? (crossUp ? '▲ BUY SIGNAL' : '▼ SELL SIGNAL') : (crossUp || crossDown) ? 'CROSS — filter fail' : 'WAITING',
-    hasSignal ? (crossUp ? 'up' : 'dn') : ''
+    hasSignal?(crossUp?'▲ BUY SIGNAL':'▼ SELL SIGNAL'):(crossUp||crossDown)?'CROSS — filter fail':'WAITING',
+    hasSignal?(crossUp?'up':'dn'):''
   );
 }
 
@@ -792,7 +803,7 @@ function renderCard() {
   document.getElementById('lE').textContent   = fmt(s.entry);
   const sl = s.slMoved ?? s.sl;
   document.getElementById('lSL').textContent  = fmt(sl);
-  document.getElementById('lSLs').textContent = s.slMoved ? 'Moved to Breakeven' : 'ATR×1.5';
+  document.getElementById('lSLs').textContent = s.slMoved ? 'Moved to Breakeven' : 'ATR×2.0';
   document.getElementById('lT1').textContent  = (['TP1','TP2','TP3'].includes(s.status) ? '✅ ' : '') + fmt(s.tp1);
   document.getElementById('lT2').textContent  = (['TP2','TP3'].includes(s.status) ? '✅ ' : '') + fmt(s.tp2);
   document.getElementById('lT3').textContent  = (s.status === 'TP3' ? '✅ ' : '') + fmt(s.tp3);
@@ -965,7 +976,7 @@ async function reload() {
     runBacktest();
     // Initial bottom bar
     const C = candles.map(c => c.c), H = candles.map(c => c.h), L = candles.map(c => c.l);
-    updateBottomBar(candles, calcEMA(C,9), calcEMA(C,21), calcEMA(C,50));
+    updateBottomBar(candles, calcEMA(C,9), calcEMA(C,21), calcEMA(C,200));
   }
   connectWS();
 }
